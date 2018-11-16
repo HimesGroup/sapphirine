@@ -29,10 +29,9 @@ mins.5 <- c(mins.5, "23:59")
 
 assign("df.list.2", as.list(read.csv("./databases/df_list.csv", stringsAsFactors = FALSE)[1,]), envir = .GlobalEnv)
 
-titles.list <- list("Avg. Humidity (%)", "Avg. Temp. (\u00B0C)", "Avg. PM-2.5 Conc. (\u03BCg/m\u00B3)", "Avg. NO Conc. (ppb)", 
-                    "Avg. Barometric Pressure (hPa)", "Avg. CO Conc. (ppm)", "Avg. CO\u2082 Conc. (ppm)")
+titles.list <- list( "Avg. Temp. (\u00B0C)", "Avg. Humidity (%)", "Avg. PM1 Conc. (\u03BCg/m\u00B3)", "Avg. PM2.5 Conc. (\u03BCg/m\u00B3)", "Avg. PM10 Conc. (\u03BCg/m\u00B3)")
 
-abbrs.list <- list("Humidity", "Temp.", "PM-2.5", "NO", "Pressure", "CO", "CO\u2082")
+abbrs.list <- list("Temp.", "Humidity", "PM1", "PM2.5", "PM10")
 
 titles.df <- data.frame(cbind(df.list.2, titles.list, abbrs.list))
 
@@ -58,7 +57,7 @@ f.units <- function(z){
 our.sensors <- read.csv("./databases/LIMEA_AIRBEAM_SUMMARY.csv", header = TRUE, stringsAsFactors = FALSE)$AirBeamID[1:15]
 our.sensors <- paste0("AirBeam:", our.sensors)
 
-sensor.names <- names(table(app.data$Sensor_ID))
+sensor.names <- names(table(app.data$Sensor.ID))
 
 #Define user interface
 ui <- fluidPage(
@@ -84,17 +83,15 @@ ui <- fluidPage(
              pickerInput("vars",
                          label = "Plot",
                          choices = list(
-                           "Particulate matter - continuous" = "ParticulateMatter",
-                           "Particulate matter - discrete" = "ParticulateMatter.d",
                            "Temperature" = "Temperature",
                            "Humidity" = "Humidity",
-                           "Barometric pressure" = "Barometricpressure",
-                           "CO concentration" = "COconcentration",
-                           "CO\u2082 concentration" = "CO2concentration",
-                           "NO concentration" = "NOconcentration"
-                         ),
+                           "PM1" = "PM1",
+                           "PM2.5 - continuous" = "PM2.5",
+                           "PM2.5 - discrete" = "PM2.5.d",
+                           "PM10" = "PM10"
+                                                   ),
                          multiple = FALSE,
-                         selected = "ParticulateMatter"
+                         selected = "PM2.5"
              ),
              
              radioButtons("d.type",
@@ -197,22 +194,26 @@ server <- function(input, output){
       map.data <- app.data %>%
         subset(Day %in% input$dates[1]:input$dates[2]) %>%
         subset(Time %in% mins[grep(input$times[1], mins) : grep(input$times[2], mins)]) %>%
-        subset(Sensor_ID %in% c(input$sensors.hl, input$sensors.o))
+        subset(Sensor.ID %in% c(input$sensors.hl, input$sensors.o))
       map.data <- subset(map.data, !is.na(map.data[,input$vars]))
       
-      map.layer <- rasterize(map.data[,2:3], r, map.data[,input$vars], fun = mean) #Creates the bins image
+      map.layer <- rasterize(map.data[,3:2], r, map.data[,input$vars], fun = mean) #Creates the bins image
       
-      map.layer.pm <- rasterize(map.data[,2:3], r, map.data$ParticulateMatter, fun = mean)
-      map.layer.t <- rasterize(map.data[,2:3], r, map.data$Temperature, fun = mean)
-      map.layer.h <- rasterize(map.data[,2:3], r, map.data$Humidity, fun = mean)
-      map.layer.md <- rasterize(map.data[,2:3], r, map.data$Count, fun = sum)
+      map.layer.t <- rasterize(map.data[,3:2], r, map.data$Temperature, fun = mean)
+      map.layer.h <- rasterize(map.data[,3:2], r, map.data$Humidity, fun = mean)
+      map.layer.pm1 <- rasterize(map.data[,3:2], r, map.data$PM1, fun = mean)
+      map.layer.pm2.5 <- rasterize(map.data[,3:2], r, map.data$PM2.5, fun = mean)
+      map.layer.pm10 <- rasterize(map.data[,3:2], r, map.data$PM10, fun = mean)
+      map.layer.md <- rasterize(map.data[,3:2], r, map.data$Count, fun = sum)
       map.layer.mdl <- calc(map.layer.md, fun = function(x){log10(x)})
       
       for(i in 1:length(values(map.layer))){
         content[i] <- paste0(
           "Avg. temperature = ", round(values(map.layer.t)[i], digits = 1), "<br/>",
           "Avg. humidity = ", round(values(map.layer.h)[i], digits = 1), "<br/>",
-          "Avg. PM-2.5 = ", round(values(map.layer.pm)[i], digits = 1), "<br/>",
+          "Avg. PM1 = ", round(values(map.layer.pm1)[i], digits = 1), "<br/>",
+          "Avg. PM2.5 = ", round(values(map.layer.pm2.5)[i], digits = 1), "<br/>",
+          "Avg. PM10 = ", round(values(map.layer.pm10)[i], digits = 1), "<br/>",
           "# of ", f.units(input$vars), " data points = ", values(map.layer.md)[i]
         )
       }
@@ -256,13 +257,13 @@ server <- function(input, output){
       
     } #End "if in df.list.2" statement
     
-    else if(input$vars == "ParticulateMatter.d"){
+    else if(input$vars == "PM2.5.d"){
       
       map.data <- app.data %>%
         subset(Day %in% input$dates[1]:input$dates[2]) %>%
         subset(Time %in% mins[grep(input$times[1], mins) : grep(input$times[2], mins)]) %>%
-        subset(Sensor_ID %in% c(input$sensors.hl, input$sensors.o)) %>%
-        subset(!is.na(ParticulateMatter))
+        subset(Sensor.ID %in% c(input$sensors.hl, input$sensors.o)) %>%
+        subset(!is.na(PM2.5))
       
       f.discrete <- function(x){
         for(i in 1:length(values(x))){
@@ -276,21 +277,25 @@ server <- function(input, output){
         return(x)
       }
       
-      map.layer <- rasterize(map.data[,2:3], r, map.data$ParticulateMatter, fun = mean) #Creates the bins image
+      map.layer <- rasterize(map.data[,3:2], r, map.data$PM2.5, fun = mean) #Creates the bins image
       map.layer <- f.discrete(map.layer)
       
-      map.layer.pm <- rasterize(map.data[,2:3], r, map.data$ParticulateMatter, fun = mean)
-      map.layer.t <- rasterize(map.data[,2:3], r, map.data$Temperature, fun = mean)
-      map.layer.h <- rasterize(map.data[,2:3], r, map.data$Humidity, fun = mean)
-      map.layer.md <- rasterize(map.data[,2:3], r, map.data$Count, fun = sum)
+      map.layer.t <- rasterize(map.data[,3:2], r, map.data$Temperature, fun = mean)
+      map.layer.h <- rasterize(map.data[,3:2], r, map.data$Humidity, fun = mean)
+      map.layer.pm1 <- rasterize(map.data[,3:2], r, map.data$PM1, fun = mean)
+      map.layer.pm2.5 <- rasterize(map.data[,3:2], r, map.data$PM2.5, fun = mean)
+      map.layer.pm10 <- rasterize(map.data[,3:2], r, map.data$PM10, fun = mean)
+      map.layer.md <- rasterize(map.data[,3:2], r, map.data$Count, fun = sum)
       map.layer.mdl <- calc(map.layer.md, fun = function(x){log10(x)})
       
       for(i in 1:length(values(map.layer))){
         content[i] <- paste0(
           "Avg. temperature = ", round(values(map.layer.t)[i], digits = 1), "<br/>",
           "Avg. humidity = ", round(values(map.layer.h)[i], digits = 1), "<br/>",
-          "Avg. PM-2.5 = ", round(values(map.layer.pm)[i], digits = 1), "<br/>",
-          "# of PM-2.5 data points = ", values(map.layer.md)[i]
+          "Avg. PM1 = ", round(values(map.layer.pm1)[i], digits = 1), "<br/>",
+          "Avg. PM2.5 = ", round(values(map.layer.pm2.5)[i], digits = 1), "<br/>",
+          "Avg. PM10 = ", round(values(map.layer.pm10)[i], digits = 1), "<br/>",
+          "# of ", f.units(input$vars), " data points = ", values(map.layer.md)[i]
         )
       }
       
@@ -308,7 +313,7 @@ server <- function(input, output){
           addTiles(options = providerTileOptions(minZoom = 9, maxZoom = 18)) %>%
           addRasterImage(map.layer, colors = c("#65C68A", "#FEE665", "#FEB065", "#FE6465"), opacity = 0.8, group = "Measurement value") %>%
           addLegend(colors = c("#65C68A", "#FEE665", "#FEB065", "#FE6465"), labels = c("0-12", "12-35", "35-55", "55+"), opacity = 0.8,
-                    title = "Avg. PM-2.5 Conc. (\u03BCg/m\u00B3)", position = "topright", group = "Measurement value") %>%
+                    title = "Avg. PM2.5 Conc. (\u03BCg/m\u00B3)", position = "topright", group = "Measurement value") %>%
           addCircleMarkers(~lons, ~lats, popup = ~content, stroke = FALSE, fillOpacity = 0.001) %>%
           addEasyButton(easyButton(
             icon = "fa-crosshairs", title = "Recenter",
