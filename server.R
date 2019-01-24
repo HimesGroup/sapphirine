@@ -1,3 +1,20 @@
+library(shiny)
+library(lubridate)
+library(dplyr)
+library(ggplot2)
+library(ggmap)
+library(grDevices)
+library(shinyWidgets)
+library(grid)
+library(gridExtra)
+library(gtable)
+library(leaflet)
+library(raster)
+library(shinyjs)
+library(mapview)
+
+source("global.R")
+
 #Define server logic
 server <- function(input, output){
   
@@ -20,20 +37,20 @@ server <- function(input, output){
         subset(Day %in% input$dates[1]:input$dates[2]) %>%
         subset(Time %in% mins[grep(input$times[1], mins) : grep(input$times[2], mins)]) %>%
         subset(Sensor.ID %in% c(input$sensors.hl, input$sensors.o))
-      map.data <- subset(map.data, !is.na(map.data[,input$vars]))
       
-      map.layer <- rasterize(map.data[,3:2], r, map.data[,input$vars], fun = mean) #Creates the bins image
+      map.layer <- rasterize(map.data[,3:2], r, map.data[,input$vars], fun = mean, na.rm = TRUE) #Creates the bins image
       
-      map.layer.t <- rasterize(map.data[,3:2], r, map.data$Temperature, fun = mean)
-      map.layer.h <- rasterize(map.data[,3:2], r, map.data$Humidity, fun = mean)
-      map.layer.pm1 <- rasterize(map.data[,3:2], r, map.data$PM1, fun = mean)
-      map.layer.pm2.5 <- rasterize(map.data[,3:2], r, map.data$PM2.5, fun = mean)
-      map.layer.pm10 <- rasterize(map.data[,3:2], r, map.data$PM10, fun = mean)
+      map.layer.t <- rasterize(map.data[,3:2], r, map.data$Temperature, fun = mean, na.rm = TRUE)
+      map.layer.h <- rasterize(map.data[,3:2], r, map.data$Humidity, fun = mean, na.rm = TRUE)
+      map.layer.pm1 <- rasterize(map.data[,3:2], r, map.data$PM1, fun = mean, na.rm = TRUE)
+      map.layer.pm2.5 <- rasterize(map.data[,3:2], r, map.data$PM2.5, fun = mean, na.rm = TRUE)
+      map.layer.pm10 <- rasterize(map.data[,3:2], r, map.data$PM10, fun = mean, na.rm = TRUE)
       map.layer.md <- rasterize(map.data[,3:2], r, map.data$Count, fun = sum)
       map.layer.mdl <- calc(map.layer.md, fun = function(x){log10(x)})
       
       for(i in 1:length(values(map.layer))){
         content[i] <- paste0(
+          round(lons[i], digits = 4), ", ", round(lats[i], digits = 4), "<br/>",
           "Avg. temperature = ", round(values(map.layer.t)[i], digits = 1), "<br/>",
           "Avg. humidity = ", round(values(map.layer.h)[i], digits = 1), "<br/>",
           "Avg. PM1 = ", round(values(map.layer.pm1)[i], digits = 1), "<br/>",
@@ -87,8 +104,7 @@ server <- function(input, output){
       map.data <- app.data %>%
         subset(Day %in% input$dates[1]:input$dates[2]) %>%
         subset(Time %in% mins[grep(input$times[1], mins) : grep(input$times[2], mins)]) %>%
-        subset(Sensor.ID %in% c(input$sensors.hl, input$sensors.o)) %>%
-        subset(!is.na(PM2.5))
+        subset(Sensor.ID %in% c(input$sensors.hl, input$sensors.o))
       
       f.discrete <- function(x){
         for(i in 1:length(values(x))){
@@ -102,19 +118,20 @@ server <- function(input, output){
         return(x)
       }
       
-      map.layer <- rasterize(map.data[,3:2], r, map.data$PM2.5, fun = mean) #Creates the bins image
+      map.layer <- rasterize(map.data[,3:2], r, map.data$PM2.5, fun = mean, na.rm = TRUE) #Creates the bins image
       map.layer <- f.discrete(map.layer)
       
-      map.layer.t <- rasterize(map.data[,3:2], r, map.data$Temperature, fun = mean)
-      map.layer.h <- rasterize(map.data[,3:2], r, map.data$Humidity, fun = mean)
-      map.layer.pm1 <- rasterize(map.data[,3:2], r, map.data$PM1, fun = mean)
-      map.layer.pm2.5 <- rasterize(map.data[,3:2], r, map.data$PM2.5, fun = mean)
-      map.layer.pm10 <- rasterize(map.data[,3:2], r, map.data$PM10, fun = mean)
+      map.layer.t <- rasterize(map.data[,3:2], r, map.data$Temperature, fun = mean, na.rm = TRUE)
+      map.layer.h <- rasterize(map.data[,3:2], r, map.data$Humidity, fun = mean, na.rm = TRUE)
+      map.layer.pm1 <- rasterize(map.data[,3:2], r, map.data$PM1, fun = mean, na.rm = TRUE)
+      map.layer.pm2.5 <- rasterize(map.data[,3:2], r, map.data$PM2.5, fun = mean, na.rm = TRUE)
+      map.layer.pm10 <- rasterize(map.data[,3:2], r, map.data$PM10, fun = mean, na.rm = TRUE)
       map.layer.md <- rasterize(map.data[,3:2], r, map.data$Count, fun = sum)
       map.layer.mdl <- calc(map.layer.md, fun = function(x){log10(x)})
       
       for(i in 1:length(values(map.layer))){
         content[i] <- paste0(
+          round(lons[i], digits = 4), ", ", round(lats[i], digits = 4), "<br/>",
           "Avg. temperature = ", round(values(map.layer.t)[i], digits = 1), "<br/>",
           "Avg. humidity = ", round(values(map.layer.h)[i], digits = 1), "<br/>",
           "Avg. PM1 = ", round(values(map.layer.pm1)[i], digits = 1), "<br/>",

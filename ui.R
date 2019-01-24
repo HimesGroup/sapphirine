@@ -1,3 +1,20 @@
+library(shiny)
+library(lubridate)
+library(dplyr)
+library(ggplot2)
+library(ggmap)
+library(grDevices)
+library(shinyWidgets)
+library(grid)
+library(gridExtra)
+library(gtable)
+library(leaflet)
+library(raster)
+library(shinyjs)
+library(mapview)
+
+source("global.R")
+
 #Define user interface
 ui <- fluidPage(
   
