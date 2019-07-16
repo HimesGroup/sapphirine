@@ -394,7 +394,7 @@ server <- function(input, output, session){
   })
   
   observeEvent(input$ss, {
-    mapshot(map.plot(), file = file = paste0(toString(Sys.Date()), "_", strftime(Sys.time(), format = "%H%M%S"), ".png"))
+    mapshot(map.plot(), file = paste0(toString(Sys.Date()), "_", strftime(Sys.time(), format = "%H%M%S"), ".png"))
   })
   
 }#End server function
