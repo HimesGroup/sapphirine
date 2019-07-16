@@ -393,14 +393,8 @@ server <- function(input, output, session){
     
   })
   
-  output$ss <- downloadHandler(
-    filename = function(){
-      file = paste0(toString(Sys.Date()), "_", strftime(Sys.time(), format = "%H%M%S"), ".png")
-    },
-    content = function(file){
-      mapshot(map.plot(), file = file)
-    }
-  )
-  
+  observeEvent(input$ss, {
+    mapshot(map.plot(), file = file = paste0(toString(Sys.Date()), "_", strftime(Sys.time(), format = "%H%M%S"), ".png"))
+  })
   
 }#End server function
