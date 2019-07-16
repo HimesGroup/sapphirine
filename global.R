@@ -60,8 +60,9 @@ hours <- c("00:00",
            "23:59"
             )
 
-mins <- unique(strftime(force_tz(as_datetime(as_datetime(hm("0:00")): as_datetime(hm("23:59"))), tz = "America/New_York"), format = "%H:%M"))
+mins <- unique(strftime(force_tz(as_datetime(as_datetime(hm("0:00")): as_datetime(hm("23:59"))), tz = "UTC"), format = "%H:%M"))
 #Creates character list that will be indexed for temporal subsetting
+#Use UTC for online and New York for local
 
 sensor.measures <- c("Temperature", "Humidity", "PM1", "PM2.5", "PM10")
 other.measures <- c("Crime", "Poverty", "Traffic")
