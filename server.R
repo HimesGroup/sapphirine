@@ -1,3 +1,5 @@
+
+.libPaths("/home/maya/R/x86_64-pc-linux-gnu-library/3.4/") #mapview dependencies, use only for online version
 library(shiny)
 library(lubridate)
 library(dplyr)
@@ -12,173 +14,233 @@ library(leaflet)
 library(raster)
 library(shinyjs)
 library(mapview)
+library(colorRamps)
 
 source("global.R")
 
 #Define server logic
-server <- function(input, output){
+server <- function(input, output, session){
   
   map.plot <- eventReactive(input$go, {
     
     #Creates base layer for raster layer to be added to map later
-    r <- raster(nrows = input$bin.no, ncols = input$bin.no, xmn = -75.25, xmx = -75.05, ymn = 39.90, ymx = 40.10)
+    r <- raster(nrows = input$row.no, ncols = input$col.no, xmn = input$lon.range[1], 
+                xmx = input$lon.range[2], ymn = input$lat.range[1], ymx = input$lat.range[2])
     
-    step.size.x <- ((-75.05) - (-75.25)) / input$bin.no
-    step.size.y <- (40.10 - 39.90) / input$bin.no
-    lons <- rep(seq(-75.25 + step.size.x / 2, -75.05 - step.size.x / 2, step.size.x), input$bin.no)
-    lats <- rep(seq(40.10 - step.size.y / 2, 39.90 + step.size.y / 2, -step.size.y), each = input$bin.no)
+    lons <- xFromCell(r, 1:ncell(r))
+    lats <- yFromCell(r, 1:ncell(r))
+    
+    step.size.x <- (input$lon.range[2] - input$lon.range[1]) / input$col.no
+    step.size.y <- (input$lat.range[2] - input$lat.range[1]) / input$row.no
+    
     content <- vector()
+
+    if(input$times[2] != "23:59"){
+      upper.ind <- grep(input$times[2], mins) - 1
+    }
+    else{
+      upper.ind <- grep("23:59", mins)
+    }
+    #Accounts for fact that time is subsetted by the hour  
     
-    if(input$vars %in% df.list.2){ #Convenient way to select variable names for "value" plot type
-      
-      #Subsets data by user-selected date range, time range, and measurement type
-      #Removes rows containing NAs for selected measurement type
-      map.data <- app.data %>%
-        subset(Day %in% input$dates[1]:input$dates[2]) %>%
-        subset(Time %in% mins[grep(input$times[1], mins) : grep(input$times[2], mins)]) %>%
-        subset(Sensor.ID %in% c(input$sensors.hl, input$sensors.o))
-      
-      map.layer <- rasterize(map.data[,3:2], r, map.data[,input$vars], fun = mean, na.rm = TRUE) #Creates the bins image
-      
-      map.layer.t <- rasterize(map.data[,3:2], r, map.data$Temperature, fun = mean, na.rm = TRUE)
-      map.layer.h <- rasterize(map.data[,3:2], r, map.data$Humidity, fun = mean, na.rm = TRUE)
-      map.layer.pm1 <- rasterize(map.data[,3:2], r, map.data$PM1, fun = mean, na.rm = TRUE)
-      map.layer.pm2.5 <- rasterize(map.data[,3:2], r, map.data$PM2.5, fun = mean, na.rm = TRUE)
-      map.layer.pm10 <- rasterize(map.data[,3:2], r, map.data$PM10, fun = mean, na.rm = TRUE)
-      map.layer.md <- rasterize(map.data[,3:2], r, map.data$Count, fun = sum)
-      map.layer.mdl <- calc(map.layer.md, fun = function(x){log10(x)})
-      
-      for(i in 1:length(values(map.layer))){
-        content[i] <- paste0(
-          round(lons[i], digits = 4), ", ", round(lats[i], digits = 4), "<br/>",
-          "Avg. temperature = ", round(values(map.layer.t)[i], digits = 1), "<br/>",
-          "Avg. humidity = ", round(values(map.layer.h)[i], digits = 1), "<br/>",
-          "Avg. PM1 = ", round(values(map.layer.pm1)[i], digits = 1), "<br/>",
-          "Avg. PM2.5 = ", round(values(map.layer.pm2.5)[i], digits = 1), "<br/>",
-          "Avg. PM10 = ", round(values(map.layer.pm10)[i], digits = 1), "<br/>",
-          "# of ", f.units(input$vars), " data points = ", values(map.layer.md)[i]
-        )
-      }
-      
-      inds <- row.names(subset(data.frame(values(map.layer)), !is.na(values(map.layer)))) #Indicies for popup removal below
-      
-      content.df <- data.frame(cbind(lons, lats, content), stringsAsFactors = FALSE)
-      content.df[,1:2] <- sapply(content.df[,1:2], as.numeric)
-      content.df <- content.df[inds,] #Removes popups with "NA" for the selected variable
-      
-      pal <- colorNumeric(palette = "BuPu", domain = values(map.layer), na.color = "transparent")
-      pal2 <- colorNumeric(palette = "BuPu", domain = values(map.layer.mdl), na.color = "transparent")
-      
-      if(input$d.type == "mv"){
-        leaflet(content.df) %>%
-          setView(lng = -75.15, lat = 40.00, zoom = 12) %>%
-          addTiles(options = providerTileOptions(minZoom = 9, maxZoom = 18)) %>%
-          addRasterImage(map.layer, colors = "BuPu", opacity = 0.8) %>%
-          addLegend(pal = pal, values = values(map.layer), opacity = 1,
-                    title = toString(f.titles(input$vars)), position = "topright") %>%
-          addCircleMarkers(~lons, ~lats, popup = ~content, stroke = FALSE, fillOpacity = 0.001) %>%
-          addEasyButton(easyButton(
-            icon = "fa-crosshairs", title = "Recenter",
-            onClick = JS("function(btn, map){ map.setView([40.00, -75.15], 12); }")
-          ))
-      }
-      
-      else if(input$d.type == "md"){
-        leaflet(content.df) %>%
-          setView(lng = -75.15, lat = 40.00, zoom = 12) %>%
-          addTiles(options = providerTileOptions(minZoom = 9, maxZoom = 18)) %>%
-          addCircleMarkers(~lons, ~lats, popup = ~content, stroke = FALSE, fillOpacity = 0.001) %>%
-          addRasterImage(map.layer.mdl, colors = "BuPu", opacity = 0.8, group = "Measurement density") %>%
-          addLegend(pal = pal2, values = values(map.layer.mdl), opacity = 1, title = paste("log # of", f.units(input$vars), "data points"),
-                    group = "Measurement density", position = "topright") %>%
-          addEasyButton(easyButton(
-            icon = "fa-crosshairs", title = "Recenter",
-            onClick = JS("function(btn, map){ map.setView([40.00, -75.15], 12); }")
-          ))
-      }
-      
-    } #End "if in df.list.2" statement
+    map.data <- app.data %>%
+      subset(Day %in% input$dates[1]:input$dates[2]) %>%
+      subset(Time %in% mins[grep(input$times[1], mins) : upper.ind])
+    #Subsets data by user-selected date range and time-range
+    #Removes rows containing NAs for selected measurement type
     
-    else if(input$vars == "PM2.5.d"){
+    sensor.data <- subset(map.data, Sensor.ID %in% c(input$sensors.hl, input$sensors.o))
+
+    #Value map layers:
+    
+    for(i in 1:length(sensor.measures)){
+      suffix <- f.suffix(sensor.measures[i])
+      measure.data <- subset(sensor.data, !is.na(sensor.data[,sensor.measures[i]]))
+      if(nrow(measure.data) > 0){
+        assign(paste0("map.layer", suffix),
+               rasterize(measure.data[,3:2], r, measure.data[,sensor.measures[i]], fun = mean, na.rm = TRUE),
+               envir = .GlobalEnv)
+      }
+      else{
+        assign(paste0("map.layer", suffix),
+               rasterize(data.frame(NA, NA), r, na.rm = TRUE),
+               envir = .GlobalEnv)
+      }
+    }
+    
+    crime.data <- subset(app.data, !is.na(app.data$Crime))
+    assign("map.layer.c", rasterize(crime.data[,3:2], r, crime.data$Crime, fun = sum, na.rm = TRUE), 
+           envir = .GlobalEnv)
+    
+    assign("map.layer.pov", resample(pov.raster, r, method = "bilinear"), envir = .GlobalEnv)
+    
+    p <- as(extent(input$lon.range[1], input$lon.range[2], input$lat.range[1], input$lat.range[2]), "SpatialPolygons")
+    proj4string(p) <- crs(traffic.df)
+    tr.data.raster <- raster::intersect(traffic.df, p)
+    tr.blank.raster <- raster(nrows = input$row.no, ncols = input$col.no, xmn = input$lon.range[1], 
+                              xmx = input$lon.range[2], ymn = input$lat.range[1], ymx = input$lat.range[2],
+                              crs = crs(traffic.df))
+    assign("map.layer.tr", rasterize(tr.data.raster, tr.blank.raster, fun = mean,
+                                     na.rm = TRUE, field = "CUR_AADT"), envir = .GlobalEnv)
       
-      map.data <- app.data %>%
-        subset(Day %in% input$dates[1]:input$dates[2]) %>%
-        subset(Time %in% mins[grep(input$times[1], mins) : grep(input$times[2], mins)]) %>%
-        subset(Sensor.ID %in% c(input$sensors.hl, input$sensors.o))
-      
-      f.discrete <- function(x){
-        for(i in 1:length(values(x))){
-          if(!is.na(values(x)[i])){
-            if(values(x)[i] >= 0 && values(x)[i] < 12){values(x)[i] <- 1}
-            if(values(x)[i] >= 12 && values(x)[i] < 35){values(x)[i] <- 2}
-            if(values(x)[i] >= 35 && values(x)[i] < 55){values(x)[i] <- 3}
-            if(values(x)[i] >= 55){values(x)[i] <- 4}
+    for(i in 1:length(sensor.measures)){
+      suffix <- f.suffix(sensor.measures[i])
+      measure.data <- subset(sensor.data, !is.na(sensor.data[,sensor.measures[i]]))
+      if(nrow(measure.data) > 0){
+        assign("density.raster", 
+               rasterize(measure.data[,3:2], r, measure.data$Count, fun = sum, na.rm = TRUE))
+      }
+      else{
+        assign("density.raster",
+               rasterize(data.frame(NA, NA), r, na.rm = TRUE))
+      }       
+      assign(paste0("map.layer", suffix, ".d"), density.raster, envir = .GlobalEnv)
+      assign(paste0("map.layer", suffix, ".dlog"), 
+             calc(density.raster, fun = function(x){log10(x)}), envir = .GlobalEnv)
+    }
+    
+    for(i in 1:length(values(map.layer.pm2.5))){
+      content[i] <- paste0("<b>",
+        "Lat rng: [", "<b style = \"color:DimGray\">", format(round(lats[i] - step.size.y/2, 5), nsmall = 5), "</b>", ", ", 
+        "<b style = \"color:DimGray\">", format(round(lats[i] + step.size.y/2, 5), nsmall = 5), "</b>", "]", "<br/>",
+        "Lon rng: [", "<b style = \"color:DimGray\">", format(round(lons[i] - step.size.x/2, 5), nsmall = 5), "</b>", ", ", 
+        "<b style = \"color:DimGray\">", format(round(lons[i] + step.size.x/2, 5), nsmall = 5), "</b>", "]", "<br/>",
+        "Avg. temperature: ", 
+        if(!is.na(map.layer.t[i])){
+          paste0("<b style = \"color:DodgerBlue\">", round(values(map.layer.t)[i], digits = 1), "\u00B0C", "</b>",
+                 " (", values(map.layer.t.d)[i], ")")}
+        else{paste0("<b style = \"color:Tomato\">", "no data", "</b>", " (0)")}, "<br/>",
+        "Avg. humidity: ", 
+        if(!is.na(map.layer.h[i])){
+          paste0("<b style = \"color:DodgerBlue\">", round(values(map.layer.h)[i], digits = 1), "%", "</b>",
+                 " (", values(map.layer.h.d)[i], ")")}
+        else{paste0("<b style = \"color:Tomato\">", "no data", "</b>", " (0)")}, "<br/>",
+        "Avg. PM1: ", 
+        if(!is.na(map.layer.pm1[i])){
+          paste0("<b style = \"color:DodgerBlue\">", round(values(map.layer.pm1)[i], digits = 2), " \u03BCg/m\u00B3", "</b>",
+                 " (", values(map.layer.pm1.d)[i], ")")}
+        else{paste0("<b style = \"color:Tomato\">", "no data", "</b>", " (0)")}, "<br/>",
+        "Avg. PM2.5: ", 
+        if(!is.na(map.layer.pm2.5[i])){
+          paste0("<b style = \"color:DodgerBlue\">", round(values(map.layer.pm2.5)[i], digits = 2), " \u03BCg/m\u00B3", "</b>",
+                 " (", values(map.layer.pm2.5.d)[i], ")")}
+        else{paste0("<b style = \"color:Tomato\">", "no data", "</b>", " (0)")}, "<br/>",
+        "Avg. PM10: ", 
+        if(!is.na(map.layer.pm10[i])){
+          paste0("<b style = \"color:DodgerBlue\">", round(values(map.layer.pm10)[i], digits = 2), " \u03BCg/m\u00B3", "</b>",
+                 " (", values(map.layer.pm10.d)[i], ")")}
+        else{paste0("<b style = \"color:Tomato\">", "no data", "</b>", " (0)")}, "<br/>",
+        "# reported crimes: ",
+        if(point.in.polygon(xFromCell(map.layer.c, i), yFromCell(map.layer.c, i), 
+                            city.border$Longitude, city.border$Latitude) == 1){
+          if(!is.na(map.layer.c[i])){
+            paste0("<b style = \"color:DodgerBlue\">", values(map.layer.c)[i], "</b>")
+          }
+          else{
+            paste0("<b style = \"color:DodgerBlue\">", "0", "</b>")
           }
         }
-        return(x)
-      }
-      
-      map.layer <- rasterize(map.data[,3:2], r, map.data$PM2.5, fun = mean, na.rm = TRUE) #Creates the bins image
-      map.layer <- f.discrete(map.layer)
-      
-      map.layer.t <- rasterize(map.data[,3:2], r, map.data$Temperature, fun = mean, na.rm = TRUE)
-      map.layer.h <- rasterize(map.data[,3:2], r, map.data$Humidity, fun = mean, na.rm = TRUE)
-      map.layer.pm1 <- rasterize(map.data[,3:2], r, map.data$PM1, fun = mean, na.rm = TRUE)
-      map.layer.pm2.5 <- rasterize(map.data[,3:2], r, map.data$PM2.5, fun = mean, na.rm = TRUE)
-      map.layer.pm10 <- rasterize(map.data[,3:2], r, map.data$PM10, fun = mean, na.rm = TRUE)
-      map.layer.md <- rasterize(map.data[,3:2], r, map.data$Count, fun = sum)
-      map.layer.mdl <- calc(map.layer.md, fun = function(x){log10(x)})
-      
-      for(i in 1:length(values(map.layer))){
-        content[i] <- paste0(
-          round(lons[i], digits = 4), ", ", round(lats[i], digits = 4), "<br/>",
-          "Avg. temperature = ", round(values(map.layer.t)[i], digits = 1), "<br/>",
-          "Avg. humidity = ", round(values(map.layer.h)[i], digits = 1), "<br/>",
-          "Avg. PM1 = ", round(values(map.layer.pm1)[i], digits = 1), "<br/>",
-          "Avg. PM2.5 = ", round(values(map.layer.pm2.5)[i], digits = 1), "<br/>",
-          "Avg. PM10 = ", round(values(map.layer.pm10)[i], digits = 1), "<br/>",
-          "# of ", f.units(input$vars), " data points = ", values(map.layer.md)[i]
-        )
-      }
-      
-      inds <- row.names(subset(data.frame(values(map.layer)), !is.na(values(map.layer)))) #Indicies for popup removal below
-      
-      content.df <- data.frame(cbind(lons, lats, content), stringsAsFactors = FALSE)
-      content.df[,1:2] <- sapply(content.df[,1:2], as.numeric)
-      content.df <- content.df[inds,] #Removes popups with "NA" for the selected variable
-      
-      pal2 <- colorNumeric(palette = "BuPu", domain = values(map.layer.mdl), na.color = "transparent")
-      
-      if(input$d.type == "mv"){
-        leaflet(content.df) %>%
-          setView(lng = -75.15, lat = 40.00, zoom = 12) %>%
-          addTiles(options = providerTileOptions(minZoom = 9, maxZoom = 18)) %>%
-          addRasterImage(map.layer, colors = c("#65C68A", "#FEE665", "#FEB065", "#FE6465"), opacity = 0.8, group = "Measurement value") %>%
-          addLegend(colors = c("#65C68A", "#FEE665", "#FEB065", "#FE6465"), labels = c("0-12", "12-35", "35-55", "55+"), opacity = 0.8,
-                    title = "Avg. PM2.5 Conc. (\u03BCg/m\u00B3)", position = "topright", group = "Measurement value") %>%
-          addCircleMarkers(~lons, ~lats, popup = ~content, stroke = FALSE, fillOpacity = 0.001) %>%
-          addEasyButton(easyButton(
-            icon = "fa-crosshairs", title = "Recenter",
-            onClick = JS("function(btn, map){ map.setView([40.00, -75.15], 12); }")
-          ))
-      }
-      
-      else if(input$d.type == "md"){
-        leaflet(content.df) %>%
-          setView(lng = -75.15, lat = 40.00, zoom = 12) %>%
-          addTiles(options = providerTileOptions(minZoom = 9, maxZoom = 18)) %>%
-          addCircleMarkers(~lons, ~lats, popup = ~content, stroke = FALSE, fillOpacity = 0.001) %>%
-          addRasterImage(map.layer.mdl, colors = "BuPu", opacity = 0.8, group = "Measurement density") %>%
-          addLegend(pal = pal2, values = values(map.layer.mdl), opacity = 1, title = paste("log # of PM-2.5 data points"),
-                    group = "Measurement density", position = "topright") %>%
-          addEasyButton(easyButton(
-            icon = "fa-crosshairs", title = "Recenter",
-            onClick = JS("function(btn, map){ map.setView([40.00, -75.15], 12); }")
-          ))
-      }
-      
-    } #End "if particulate matter discrete" statement
+        else{
+          if(!is.na(map.layer.c[i])){
+            paste0("<b style = \"color:DodgerBlue\">", values(map.layer.c)[i], "</b>", 
+                   " (", "<b style = \"color:Tomato\">", "Phil. only", "</b>", ")")
+          }
+          else{
+            paste0("<b style = \"color:Tomato\">", "no data", "</b>")
+          }
+        },
+           "<br/>",
+        "Avg. ADI: ",
+        if(!is.na(map.layer.pov[i])){paste0("<b style = \"color:DodgerBlue\">", round(values(map.layer.pov)[i], digits = 2), "</b>")}
+        else{paste0("<b style = \"color:Tomato\">", "no data", "</b>")}, "<br/>",
+        "Avg. AADT: ",
+        if(is.na(map.layer.tr[i])){
+          paste0("<b style = \"color:Tomato\">", "no data", "</b>")
+        }
+        else{
+          if(point.in.polygon(xFromCell(map.layer.tr, i), yFromCell(map.layer.tr, i), 
+                              city.border$Longitude, city.border$Latitude) == 1){
+            paste0("<b style = \"color:DodgerBlue\">", round(values(map.layer.tr)[i], digits = 0), "</b>")
+          }
+          else{
+            paste0("<b style = \"color:DodgerBlue\">", round(values(map.layer.tr)[i], digits = 0), "</b>", 
+                   " (", "<b style = \"color:Tomato\">", "Phil. only", "</b>", ")")
+          }
+        },
+        "<br/>",
+        "</b>"
+      )
+    }
     
+    inds.df <- cbind(values(map.layer.t),
+                     values(map.layer.h),
+                     values(map.layer.pm1),
+                     values(map.layer.pm2.5),
+                     values(map.layer.pm10),
+                     values(map.layer.c),
+                     values(map.layer.pov),
+                     values(map.layer.tr)
+                     )
+    
+    inds <- apply(inds.df, 1, function(x) all(is.na(x)))
+    #Indicies for removing popups with all NA
+    
+    content.df <- data.frame(cbind(lons, lats, content), stringsAsFactors = FALSE)
+    content.df[,1:2] <- sapply(content.df[,1:2], as.numeric)
+    content.df[inds, 1:2] <- NA
+    #Removes popups for which all data are NA
+    #Coercing lat and lon to NA works better than removing these rows
+
+    for(i in 1:length(all.measures)){
+      suffix <- f.suffix(all.measures[i])
+      vals <- values(eval(parse(text = paste0("map.layer", suffix))))
+      if(!all(is.na(vals))){
+        assign(paste0("pal", suffix), 
+               colorNumeric(palette = green2red(ncell(r)), 
+                            domain = vals, 
+                            na.color = "transparent"),
+               envir = .GlobalEnv)
+      }
+    }
+    
+    for(i in 1:length(sensor.measures)){
+      suffix <- f.suffix(sensor.measures[i])
+      vals <- values(eval(parse(text = paste0("map.layer", suffix, ".dlog"))))
+      if(!all(is.na(vals))){
+      assign(paste0("pal", suffix, ".d"),
+             colorNumeric(palette = green2red(ncell(r)), 
+                          domain = vals, 
+                          na.color = "transparent"),
+             envir = .GlobalEnv)
+      }
+    }
+    
+    
+    leaflet(content.df) %>%
+      setView(lng = -75.40, lat = 39.70, zoom = 8) %>%
+      addProviderTiles(providers$Esri.WorldTopoMap) %>%
+      addRasterImage(map.layer.pm2.5, colors = pal.pm2.5, opacity = 0.8, group = "Measurement value", method = "ngb") %>%
+      addLegend(pal = pal.pm2.5, values = values(map.layer.pm2.5), opacity = 1,
+                title = toString(f.titles("PM2.5")), position = "topright",
+                group = "Measurement value") %>%
+      addRasterImage(map.layer.pm2.5.dlog, colors = pal.pm2.5.d, opacity = 0.8, group = "Measurement density", method = "ngb") %>%
+      addLegend(pal = pal.pm2.5.d, values = values(map.layer.pm2.5.dlog), opacity = 1, 
+                title = paste("log # of PM2.5 data points"),
+                group = "Measurement density", position = "topright") %>%
+      addCircleMarkers(~lons, ~lats, popup = ~content, stroke = FALSE, fillOpacity = 0.001) %>%
+      addMeasure(position = "topleft", primaryLengthUnit = "meters", secondaryLengthUnit = "miles",
+                 primaryAreaUnit = "sqmeters", secondaryAreaUnit = "sqmiles") %>%
+      addEasyButton(easyButton(
+        icon = "fa-crosshairs", title = "Recenter",
+        onClick = JS("function(btn, map){ map.setView([39.70, -75.40], 8); }")
+      )) %>%
+      leafem::addMouseCoordinates() %>%
+      addLayersControl(baseGroups = all.measures, 
+                       overlayGroups = c("Measurement value", "Measurement density"),
+                       options = layersControlOptions(collapsed = FALSE)) %>%
+      showGroup(c("PM2.5", "Measurement value")) %>%
+      hideGroup(c(all.measures[which(all.measures != "PM2.5")], "Measurement density"))
+
   }) #End eventReactive
   
   #Delays plotting until "Go" button is clicked
@@ -186,9 +248,159 @@ server <- function(input, output){
     output$int.map <- renderLeaflet({map.plot()})
   })
   
-  observeEvent(input$ss, {
-    mapshot(map.plot(), file = paste0("./map_captures/", toString(Sys.Date()), "_", strftime(Sys.time(), format = "%H%M%S"), ".png"))
+  observeEvent(input$int.map_groups, {
+    
+    map <- leafletProxy("int.map", session) %>%
+      clearControls() %>%
+      removeMarker(c("null1", "null2", "null3")) %>%
+      clearPopups()
+
+    if("Measurement value" %in% input$int.map_groups && !"Measurement density" %in% input$int.map_groups){
+      
+      for(i in c(4, 1:3, 5:length(all.measures))){ #Ensures that default is PM2.5, the 4th item
+        
+        suffix <- f.suffix(all.measures[i])
+        map.layer <- eval(parse(text = paste0("map.layer", suffix)))
+        legend.title <- toString(f.titles(all.measures[i]))
+        
+        if(all.measures[i] %in% input$int.map_groups){
+          
+          if(all(is.na(values(map.layer)))){
+            map %>%
+              clearImages() %>%
+              addLabelOnlyMarkers(
+                lng = -75.15, lat = 40.00,
+                label = "No data for selected parameter",
+                layerId = "null1",
+                labelOptions = labelOptions(noHide = TRUE,
+                                            style = list(
+                                              "color" = "red",
+                                              "font-size" = "20px",
+                                              "font-family" = "serif",
+                                              "border-color" = "rgba(0,0,0,1)"
+                                            )))
+          }
+          
+          else{
+            
+            pal <- eval(parse(text = paste0("pal", suffix)))
+            
+            map %>%
+              clearImages() %>%
+              removeMarker("null1") %>%
+              addRasterImage(map.layer, colors = pal, opacity = 0.8, method = "ngb") %>%
+              addLegend(pal = pal, values = values(map.layer), opacity = 1,
+                        title = legend.title, position = "topright") %>%
+              showGroup(c(all.measures[i], "Measurement value")) %>%
+              hideGroup(c(all.measures[which(all.measures != all.measures[i])], "Measurement density"))
+          }
+        }
+      }
+    }
+    
+    else if("Measurement density" %in% input$int.map_groups && !"Measurement value" %in% input$int.map_groups){
+      
+      for(i in c(4, 1:3, 5:length(sensor.measures))){
+        
+        suffix <- f.suffix(sensor.measures[i])
+        map.layer <- eval(parse(text = paste0("map.layer", suffix, ".dlog")))
+        legend.title <- toString(f.titles.d(sensor.measures[i]))
+        
+        if(sensor.measures[i] %in% input$int.map_groups){
+          
+          if(all(is.na(values(map.layer)))){
+            map %>%
+              clearImages() %>%
+              addLabelOnlyMarkers(
+                lng = -75.15, lat = 40.00,
+                label = "No data",
+                layerId = "null1",
+                labelOptions = labelOptions(noHide = TRUE,
+                                            style = list(
+                                              "color" = "red",
+                                              "font-size" = "20px",
+                                              "font-family" = "serif",
+                                              "border-color" = "rgba(0,0,0,1)"
+                                            )))
+          }
+          
+          else{
+            
+            pal <- eval(parse(text = paste0("pal", suffix, ".d")))
+            
+            map %>%
+              clearImages() %>%
+              removeMarker("null1") %>%
+              addRasterImage(map.layer, colors = pal, opacity = 0.8, method = "ngb") %>%
+              addLegend(pal = pal, values = values(map.layer), opacity = 1,
+                        title = legend.title, position = "topright") %>%
+              showGroup(c(sensor.measures[i], "Measurement density")) %>%
+              hideGroup(c(all.measures[which(all.measures != all.measures[i])], "Measurement value"))
+          }
+        }
+      }
+      
+      if("Crime" %in% input$int.map_groups || "Poverty" %in% input$int.map_groups || 
+         "Traffic" %in% input$int.map_groups){
+        map %>%
+          clearImages() %>%
+          addLabelOnlyMarkers(
+            lng = -75.15, lat = 40.00,
+            label = "N/A",
+            layerId = "null2",
+            labelOptions = labelOptions(noHide = TRUE,
+                                        style = list(
+                                          "color" = "red",
+                                          "font-size" = "20px",
+                                          "font-family" = "serif",
+                                          "border-color" = "rgba(0,0,0,1)"
+                                        )))
+      }
+      
+    }
+    
+    else if("Measurement value" %in% input$int.map_groups && "Measurement density" %in% input$int.map_groups){
+      map %>%
+        clearImages() %>%
+        addLabelOnlyMarkers(
+          lng = -75.15, lat = 40.00,
+          label = "Please select only \"Measurement value\" or \"Measurement density\".",
+          layerId = "null3",
+          labelOptions = labelOptions(noHide = TRUE,
+                                      style = list(
+                                        "color" = "red",
+                                        "font-size" = "20px",
+                                        "font-family" = "serif",
+                                        "border-color" = "rgba(0,0,0,1)"
+                                      )))
+    }
+    
+    else if(!"Measurement value" %in% input$int.map_groups && !"Measurement density" %in% input$int.map_groups){
+      map %>%
+        clearImages() %>%
+        addLabelOnlyMarkers(
+          lng = -75.15, lat = 40.00,
+          label = "Please select either \"Measurement value\" or \"Measurement density\".",
+          layerId = "null3",
+          labelOptions = labelOptions(noHide = TRUE,
+                                      style = list(
+                                        "color" = "red",
+                                        "font-size" = "20px",
+                                        "font-family" = "serif",
+                                        "border-color" = "rgba(0,0,0,1)"
+                                      )))
+    }
+    
   })
+  
+  output$ss <- downloadHandler(
+    filename = function(){
+      file = paste0(toString(Sys.Date()), "_", strftime(Sys.time(), format = "%H%M%S"), ".png")
+    },
+    content = function(file){
+      mapshot(map.plot(), file = file)
+    }
+  )
   
   
 }#End server function
