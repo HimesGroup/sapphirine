@@ -191,12 +191,14 @@ server <- function(input, output, session){
     #Removes popups for which all data are NA
     #Coercing lat and lon to NA works better than removing these rows
 
+    colors <- c("#ffffb2", "#fed976", "#feb24c", "#fd8d3c", "#fc4e2a", "#e31a1c", "#b10026")
+    
     for(i in 1:length(all.measures)){
       suffix <- f.suffix(all.measures[i])
       vals <- values(eval(parse(text = paste0("map.layer", suffix))))
       if(!all(is.na(vals))){
         assign(paste0("pal", suffix), 
-               colorNumeric(palette = green2red(ncell(r)), 
+               colorNumeric(palette = colors, 
                             domain = vals, 
                             na.color = "transparent"),
                envir = .GlobalEnv)
@@ -207,11 +209,11 @@ server <- function(input, output, session){
       suffix <- f.suffix(sensor.measures[i])
       vals <- values(eval(parse(text = paste0("map.layer", suffix, ".dlog"))))
       if(!all(is.na(vals))){
-      assign(paste0("pal", suffix, ".d"),
-             colorNumeric(palette = green2red(ncell(r)), 
-                          domain = vals, 
-                          na.color = "transparent"),
-             envir = .GlobalEnv)
+        assign(paste0("pal", suffix, ".d"),
+               colorNumeric(palette = colors, 
+                            domain = vals, 
+                            na.color = "transparent"),
+               envir = .GlobalEnv)
       }
     }
     
