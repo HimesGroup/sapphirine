@@ -29,7 +29,7 @@ ui <- fluidPage(
             Pollution data are recorded by portable and fixed sensors, and are sourced from the Aircasting.org CrowdMap, from the PurpleAir downloader, and independently from our own sensors."),
            tags$p("Adjust the parameters below to your desired values, and then click \"Go\" to display the corresponding map. Slider bars can be fine-tuned using arrow keys.
                   Within the map, you will be able to switch between interactive displays for the measurements listed in the upper right corner, and, for sensor measures, you will be able to visualize either the measurement value or the measurement density.
-                  Click on a bin to view the data corresponding to the region the bin encompasses, in accordance with your set parameters. For each data type, the measurement value is given, and where applicable, the number of data points used to estimate the average value is given in parentheses.
+                  Click on a bin to view the data corresponding to the region the bin encompasses, in accordance with your set parameters. For each data type, the measurement value is given, and where applicable, the number of data points used to estimate the average value (i.e. the measurement density) is given in parentheses.
                   Click on the ruler icon to measure physical distances on the map, and click on the crosshair icon to recenter the map.
                   The latitude and longitude corresponding to the cursor position are shown above the top left corner of the map, which is useful for selecting the desired geographic scope of the display.
                   To take a screenshot of the map, use Windows+PrtSc (Windows) or Shift+Command+5 (Mac).")
