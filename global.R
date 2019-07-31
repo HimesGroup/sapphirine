@@ -111,7 +111,7 @@ city.border <- read.csv("/srv/shiny-server/databases/cdatabases/sapphirine/city_
 #city.border <- read.csv("./databases/city_border.csv", header = TRUE)[,2:3]
 
 #Online:
-traffic.raster <- raster("/srv/shiny-server/databases/sapphirine/traffic_raster.grd")
+traffic.raster <- raster("/srv/shiny-server/databases/cdatabases/sapphirine/traffic_raster.grd")
 
 #Local:
 #traffic.raster <- raster("./databases/traffic_raster.grd")

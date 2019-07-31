@@ -196,6 +196,13 @@ server <- function(input, output, session){
                             na.color = "transparent"),
                envir = .GlobalEnv)
       }
+      else{
+        assign(paste0("pal", suffix),
+               colorNumeric(palette = colors,
+                            domain = 0,
+                            na.color = "transparent"),
+               envir = .GlobalEnv)
+      }
     }
     
     for(i in 1:length(sensor.measures)){
@@ -205,6 +212,13 @@ server <- function(input, output, session){
         assign(paste0("pal", suffix, ".d"),
                colorNumeric(palette = colors, 
                             domain = vals, 
+                            na.color = "transparent"),
+               envir = .GlobalEnv)
+      }
+      else{
+        assign(paste0("pal", suffix, ".d"),
+               colorNumeric(palette = colors,
+                            domain = 0,
                             na.color = "transparent"),
                envir = .GlobalEnv)
       }
@@ -269,7 +283,7 @@ server <- function(input, output, session){
               clearImages() %>%
               addLabelOnlyMarkers(
                 lng = -75.15, lat = 40.00,
-                label = "No data for selected parameter",
+                label = "No data",
                 layerId = "null1",
                 labelOptions = labelOptions(noHide = TRUE,
                                             style = list(
