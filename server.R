@@ -74,14 +74,7 @@ server <- function(input, output, session){
     
     assign("map.layer.pov", resample(pov.raster, r, method = "bilinear"), envir = .GlobalEnv)
     
-    p <- as(extent(input$lon.range[1], input$lon.range[2], input$lat.range[1], input$lat.range[2]), "SpatialPolygons")
-    proj4string(p) <- crs(traffic.df)
-    tr.data.raster <- raster::intersect(traffic.df, p)
-    tr.blank.raster <- raster(nrows = input$row.no, ncols = input$col.no, xmn = input$lon.range[1], 
-                              xmx = input$lon.range[2], ymn = input$lat.range[1], ymx = input$lat.range[2],
-                              crs = crs(traffic.df))
-    assign("map.layer.tr", rasterize(tr.data.raster, tr.blank.raster, fun = mean,
-                                     na.rm = TRUE, field = "CUR_AADT"), envir = .GlobalEnv)
+    assign("map.layer.tr", resample(traffic.raster, r, method = "bilinear"), envir = .GlobalEnv)
       
     for(i in 1:length(sensor.measures)){
       suffix <- f.suffix(sensor.measures[i])
@@ -246,9 +239,13 @@ server <- function(input, output, session){
   }) #End eventReactive
   
   #Delays plotting until "Go" button is clicked
+  
   observeEvent(input$go, {
-    output$int.map <- renderLeaflet({map.plot()})
+    output$int.map <- renderLeaflet({
+      withProgress(message = "Loading map...", {map.plot()})
+    })
   })
+  
   
   observeEvent(input$int.map_groups, {
     
@@ -393,10 +390,6 @@ server <- function(input, output, session){
                                       )))
     }
     
-  })
-  
-  observeEvent(input$ss, {
-    mapshot(map.plot(), file = paste0(toString(Sys.Date()), "_", strftime(Sys.time(), format = "%H%M%S"), ".png"))
   })
   
 }#End server function

@@ -1,4 +1,3 @@
-
 .libPaths("/home/maya/R/x86_64-pc-linux-gnu-library/3.4/") #mapview dependencies, use only for online version
 library(shiny)
 library(lubridate)
@@ -14,8 +13,7 @@ library(leaflet)
 library(raster)
 library(shinyjs)
 library(mapview)
-
-source("global.R")
+library(shinycssloaders)
 
 #Define user interface
 ui <- fluidPage(
@@ -25,8 +23,7 @@ ui <- fluidPage(
   fluidRow(
     
     column(12,
-           tags$p("SAPPhiRINE is an interactive geospatial-analysis tool that allows users to visualize pollution and other data throughout the Greater Philadelphia Area with high degrees of geographic and temporal specificity. 
-            Pollution data are recorded by portable and fixed sensors, and are sourced from the Aircasting.org CrowdMap, from the PurpleAir downloader, and independently from our own sensors."),
+           tags$p("SAPPhiRINE is an interactive geospatial-analysis tool that allows users to visualize pollution and other data throughout the Greater Philadelphia Area with high degrees of geographic and temporal specificity."),
            tags$p("Adjust the parameters below to your desired values, and then click \"Go\" to display the corresponding map. Slider bars can be fine-tuned using arrow keys.
                   Within the map, you will be able to switch between interactive displays for the measurements listed in the upper right corner, and, for sensor measures, you will be able to visualize either the measurement value or the measurement density.
                   Click on a bin to view the data corresponding to the region the bin encompasses, in accordance with your set parameters. For each data type, the measurement value is given, and where applicable, the number of data points used to estimate the average value (i.e. the measurement density) is given in parentheses.
@@ -125,7 +122,17 @@ ui <- fluidPage(
   ), #End WellPanel
   
   fluidRow(
-    leafletOutput("int.map", height = 700)
+    
+    column(1),
+    
+    column(10,
+           
+      leafletOutput("int.map", height = 700)
+           
+    ),
+    
+    column(1)
+    
   )
   
            ) #End UI

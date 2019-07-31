@@ -111,13 +111,10 @@ city.border <- read.csv("/srv/shiny-server/databases/cdatabases/sapphirine/city_
 #city.border <- read.csv("./databases/city_border.csv", header = TRUE)[,2:3]
 
 #Online:
-traffic.df <- readRDS("/srv/shiny-server/databases/cdatabases/sapphirine/phlroads.rds")
+traffic.raster <- raster("/srv/shiny-server/databases/sapphirine/traffic_raster.grd")
 
 #Local:
-#traffic.df <- readRDS("./databases/phlroads.rds")
-
-traffic.df$CUR_AADT <- as.numeric(as.character(traffic.df$CUR_AADT))
-traffic.df <- spTransform(traffic.df, CRS("+proj=longlat +datum=WGS84"))
+#traffic.raster <- raster("./databases/traffic_raster.grd")
 
 our.sensors <- paste0("AirBeam:", our.sensors)
 
