@@ -3,20 +3,14 @@
 library(shiny)
 library(lubridate)
 library(dplyr)
-library(ggplot2)
-library(ggmap)
-library(grDevices)
 library(shinyWidgets)
-library(grid)
-library(gridExtra)
-library(gtable)
 library(leaflet)
 library(raster)
 library(shinyjs)
 library(mapview)
 library(data.table)
 library(feather)
-library(colorRamps)
+library(RColorBrewer)
 
 app.data <- read_feather("../databases/cdatabases/sapphirine/all_data.feather")
 
@@ -64,19 +58,20 @@ suffix.list <- c(".t", ".h", ".pm1", ".pm2.5", ".pm10", ".c", ".pov", ".tr")
 titles.df <- data.frame(cbind(all.measures, titles.list, suffix.list))
 
 f.titles <- function(y){
-  
   index <- which(titles.df[,1] == y)
   return(titles.df[index, 2])
- 
-} #End f.titles
+}
 
 f.titles.d <- function(w){paste("log # of", w, "data points")}
 
 f.suffix <- function(z){
-  
   index <- which(titles.df[,1] == z)
   return(titles.df[index, 3])
-  
+}
+
+f.zoom <- function(x, y){
+  val <- ifelse(x > y, x, y)
+  return(as.integer(round(11.47 - 1.5*val, digits = 0)))
 }
 
 pov.raster <- raster("../databases/cdatabases/sapphirine/poverty.grd")

@@ -169,7 +169,8 @@ server <- function(input, output, session){
     #Removes popups for which all data are NA
     #Coercing lat and lon to NA works better than removing these rows
 
-    colors <- c("#ffffb2", "#fed976", "#feb24c", "#fd8d3c", "#fc4e2a", "#e31a1c", "#b10026")
+    colors <- brewer.pal(7, "YlOrRd")
+    colors.d <- brewer.pal(7, "Purples")
     
     for(i in 1:length(all.measures)){
       suffix <- f.suffix(all.measures[i])
@@ -207,12 +208,12 @@ server <- function(input, output, session){
       vals <- values(eval(parse(text = paste0("map.layer", suffix, ".dlog"))))
       if(!all(is.na(vals))){
         assign(paste0("pal", suffix, ".d"),
-               colorNumeric(palette = colors, 
+               colorNumeric(palette = colors.d, 
                             domain = vals, 
                             na.color = "transparent"),
                envir = .GlobalEnv)
         assign(paste0("leg.pal", suffix, ".d"), 
-               colorNumeric(palette = colors, 
+               colorNumeric(palette = colors.d, 
                             domain = vals, 
                             na.color = "transparent",
                             reverse = TRUE),
@@ -220,12 +221,12 @@ server <- function(input, output, session){
       }
       else{
         assign(paste0("pal", suffix, ".d"),
-               colorNumeric(palette = colors,
+               colorNumeric(palette = colors.d,
                             domain = 0,
                             na.color = "transparent"),
                envir = .GlobalEnv)
         assign(paste0("leg.pal", suffix, ".d"), 
-               colorNumeric(palette = colors, 
+               colorNumeric(palette = colors.d, 
                             domain = 0, 
                             na.color = "transparent",
                             reverse = TRUE),
@@ -233,9 +234,13 @@ server <- function(input, output, session){
       }
     }
     
+    lon.center <- (input$lon.range[2] + input$lon.range[1]) / 2
+    lat.center <- (input$lat.range[2] + input$lat.range[1]) / 2
+    zoom.no <- f.zoom(input$lon.range[2] - input$lon.range[1], input$lat.range[2] - input$lat.range[1])
+    button.js <- paste0("function(btn, map){ map.setView([", lat.center, ", ", lon.center, "], ", zoom.no, "); }")
     
     leaflet(content.df) %>%
-      setView(lng = -75.40, lat = 39.70, zoom = 8) %>%
+      setView(lng = lon.center, lat = lat.center, zoom = zoom.no) %>%
       addProviderTiles(providers$Esri.WorldTopoMap) %>%
       addRasterImage(map.layer.pm2.5, colors = pal.pm2.5, opacity = 0.8, group = "Measurement value", method = "ngb") %>%
       addLegend(pal = leg.pal.pm2.5, values = values(map.layer.pm2.5), opacity = 1,
@@ -250,7 +255,7 @@ server <- function(input, output, session){
                  primaryAreaUnit = "sqmeters", secondaryAreaUnit = "sqmiles") %>%
       addEasyButton(easyButton(
         icon = "fa-crosshairs", title = "Recenter",
-        onClick = JS("function(btn, map){ map.setView([39.70, -75.40], 8); }")
+        onClick = JS(paste(button.js))
       )) %>%
       leafem::addMouseCoordinates() %>%
       addLayersControl(baseGroups = all.measures, 
