@@ -1,19 +1,5 @@
+
 .libPaths("/home/maya/R/x86_64-pc-linux-gnu-library/3.4/") #mapview dependencies, use only for online version
-library(shiny)
-library(lubridate)
-library(dplyr)
-library(ggplot2)
-library(ggmap)
-library(grDevices)
-library(shinyWidgets)
-library(grid)
-library(gridExtra)
-library(gtable)
-library(leaflet)
-library(raster)
-library(shinyjs)
-library(mapview)
-library(shinycssloaders)
 
 #Define user interface
 ui <- fluidPage(
@@ -29,7 +15,8 @@ ui <- fluidPage(
                   Click on a bin to view the data corresponding to the region the bin encompasses, in accordance with your set parameters. For each data type, the measurement value is given, and where applicable, the number of data points used to estimate the average value (i.e. the measurement density) is given in parentheses.
                   Click on the ruler icon to measure physical distances on the map, and click on the crosshair icon to recenter the map.
                   The latitude and longitude corresponding to the cursor position are shown above the top left corner of the map, which is useful for selecting the desired geographic scope of the display.
-                  To take a screenshot of the map, use Windows+PrtSc (Windows) or Shift+Command+5 (Mac).")
+                  To take a screenshot of the map, use Windows+PrtSc (Windows) or Shift+Command+5 (Mac)."),
+           tags$p("Note: Traffic and poverty data are not subject to temporal subsetting.")
            )
    ),
   

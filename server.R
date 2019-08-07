@@ -1,20 +1,5 @@
 
 .libPaths("/home/maya/R/x86_64-pc-linux-gnu-library/3.4/") #mapview dependencies, use only for online version
-library(shiny)
-library(lubridate)
-library(dplyr)
-library(ggplot2)
-library(ggmap)
-library(grDevices)
-library(shinyWidgets)
-library(grid)
-library(gridExtra)
-library(gtable)
-library(leaflet)
-library(raster)
-library(shinyjs)
-library(mapview)
-library(colorRamps)
 
 source("global.R")
 
@@ -195,12 +180,24 @@ server <- function(input, output, session){
                             domain = vals, 
                             na.color = "transparent"),
                envir = .GlobalEnv)
+        assign(paste0("leg.pal", suffix), 
+               colorNumeric(palette = colors, 
+                            domain = vals, 
+                            na.color = "transparent",
+                            reverse = TRUE),
+               envir = .GlobalEnv)
       }
       else{
         assign(paste0("pal", suffix),
                colorNumeric(palette = colors,
                             domain = 0,
                             na.color = "transparent"),
+               envir = .GlobalEnv)
+        assign(paste0("leg.pal", suffix), 
+               colorNumeric(palette = colors, 
+                            domain = 0, 
+                            na.color = "transparent",
+                            reverse = TRUE),
                envir = .GlobalEnv)
       }
     }
@@ -214,12 +211,24 @@ server <- function(input, output, session){
                             domain = vals, 
                             na.color = "transparent"),
                envir = .GlobalEnv)
+        assign(paste0("leg.pal", suffix, ".d"), 
+               colorNumeric(palette = colors, 
+                            domain = vals, 
+                            na.color = "transparent",
+                            reverse = TRUE),
+               envir = .GlobalEnv)
       }
       else{
         assign(paste0("pal", suffix, ".d"),
                colorNumeric(palette = colors,
                             domain = 0,
                             na.color = "transparent"),
+               envir = .GlobalEnv)
+        assign(paste0("leg.pal", suffix, ".d"), 
+               colorNumeric(palette = colors, 
+                            domain = 0, 
+                            na.color = "transparent",
+                            reverse = TRUE),
                envir = .GlobalEnv)
       }
     }
@@ -229,11 +238,11 @@ server <- function(input, output, session){
       setView(lng = -75.40, lat = 39.70, zoom = 8) %>%
       addProviderTiles(providers$Esri.WorldTopoMap) %>%
       addRasterImage(map.layer.pm2.5, colors = pal.pm2.5, opacity = 0.8, group = "Measurement value", method = "ngb") %>%
-      addLegend(pal = pal.pm2.5, values = values(map.layer.pm2.5), opacity = 1,
+      addLegend(pal = leg.pal.pm2.5, values = values(map.layer.pm2.5), opacity = 1,
                 title = toString(f.titles("PM2.5")), position = "topright",
                 group = "Measurement value") %>%
       addRasterImage(map.layer.pm2.5.dlog, colors = pal.pm2.5.d, opacity = 0.8, group = "Measurement density", method = "ngb") %>%
-      addLegend(pal = pal.pm2.5.d, values = values(map.layer.pm2.5.dlog), opacity = 1, 
+      addLegend(pal = leg.pal.pm2.5.d, values = values(map.layer.pm2.5.dlog), opacity = 1, 
                 title = paste("log # of PM2.5 data points"),
                 group = "Measurement density", position = "topright") %>%
       addCircleMarkers(~lons, ~lats, popup = ~content, stroke = FALSE, fillOpacity = 0.001) %>%
@@ -297,12 +306,13 @@ server <- function(input, output, session){
           else{
             
             pal <- eval(parse(text = paste0("pal", suffix)))
+            leg.pal <- eval(parse(text = paste0("leg.pal", suffix)))
             
             map %>%
               clearImages() %>%
               removeMarker("null1") %>%
               addRasterImage(map.layer, colors = pal, opacity = 0.8, method = "ngb") %>%
-              addLegend(pal = pal, values = values(map.layer), opacity = 1,
+              addLegend(pal = leg.pal, values = values(map.layer), opacity = 1,
                         title = legend.title, position = "topright") %>%
               showGroup(c(all.measures[i], "Measurement value")) %>%
               hideGroup(c(all.measures[which(all.measures != all.measures[i])], "Measurement density"))
@@ -340,12 +350,13 @@ server <- function(input, output, session){
           else{
             
             pal <- eval(parse(text = paste0("pal", suffix, ".d")))
+            leg.pal <- eval(parse(text = paste0("leg.pal", suffix, ".d")))
             
             map %>%
               clearImages() %>%
               removeMarker("null1") %>%
               addRasterImage(map.layer, colors = pal, opacity = 0.8, method = "ngb") %>%
-              addLegend(pal = pal, values = values(map.layer), opacity = 1,
+              addLegend(pal = leg.pal, values = values(map.layer), opacity = 1,
                         title = legend.title, position = "topright") %>%
               showGroup(c(sensor.measures[i], "Measurement density")) %>%
               hideGroup(c(all.measures[which(all.measures != all.measures[i])], "Measurement value"))

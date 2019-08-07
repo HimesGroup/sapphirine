@@ -1,3 +1,4 @@
+
 .libPaths("/home/maya/R/x86_64-pc-linux-gnu-library/3.4/") #mapview dependencies, use only for online version
 library(shiny)
 library(lubridate)
@@ -15,23 +16,9 @@ library(shinyjs)
 library(mapview)
 library(data.table)
 library(feather)
+library(colorRamps)
 
-#Memory limit increase (online only)
-#library(httr)
-#library(ulimit)
-#library(feather)
-#set_config( config( ssl_verifypeer = 0L ))
-#ulimit::memory_limit(4000)
-
-#Use this one if online:
-#app.data <- read_feather("/srv/shiny-server/databases/sapphirine/all_data.feather")
-
-#Use this one if locally making adjustments:
-#Local
-#app.data <- read_feather("./databases/all_data.feather")
-
-#Online
-app.data <- read_feather("/srv/shiny-server/databases/cdatabases/sapphirine/all_data.feather")
+app.data <- read_feather("../databases/cdatabases/sapphirine/all_data.feather")
 
 hours <- c("00:00",
            "01:00",
@@ -92,29 +79,13 @@ f.suffix <- function(z){
   
 }
 
-#Online:
-pov.raster <- raster("/srv/shiny-server/databases/cdatabases/sapphirine/poverty.grd")
+pov.raster <- raster("../databases/cdatabases/sapphirine/poverty.grd")
 
-#Local:
-#pov.raster <- raster('./databases/poverty.grd')
+our.sensors <- fread("../databases/cdatabases/sapphirine/LIMEA_AIRBEAM_SUMMARY.csv", header = TRUE, stringsAsFactors = FALSE)$AirBeamID[1:15]
 
-#Online:
-our.sensors <- fread("/srv/shiny-server/databases/cdatabases/sapphirine/LIMEA_AIRBEAM_SUMMARY.csv", header = TRUE, stringsAsFactors = FALSE)$AirBeamID[1:15]
+city.border <- read.csv("../databases/cdatabases/sapphirine/city_border.csv", header = TRUE)[,2:3]
 
-#Local:
-#our.sensors <- fread("./databases/LIMEA_AIRBEAM_SUMMARY.csv", header = TRUE, stringsAsFactors = FALSE)$AirBeamID[1:15]
-
-#Online:
-city.border <- read.csv("/srv/shiny-server/databases/cdatabases/sapphirine/city_border.csv", header = TRUE)[,2:3]
-
-#Local:
-#city.border <- read.csv("./databases/city_border.csv", header = TRUE)[,2:3]
-
-#Online:
-traffic.raster <- raster("/srv/shiny-server/databases/cdatabases/sapphirine/traffic_raster.grd")
-
-#Local:
-#traffic.raster <- raster("./databases/traffic_raster.grd")
+traffic.raster <- raster("../databases/cdatabases/sapphirine/traffic_raster.grd")
 
 our.sensors <- paste0("AirBeam:", our.sensors)
 
