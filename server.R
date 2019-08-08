@@ -320,7 +320,8 @@ server <- function(input, output, session){
               removeMarker("null1") %>%
               addRasterImage(map.layer, colors = pal, opacity = 0.8, method = "ngb") %>%
               addLegend(pal = leg.pal, values = values(map.layer), opacity = 1,
-                        title = legend.title, position = "topright") %>%
+                        title = legend.title, position = "topright",
+                        labFormat = labelFormat(transform = function(x) sort(x, decreasing = TRUE))) %>%
               showGroup(c(all.measures[i], "Measurement value")) %>%
               hideGroup(c(all.measures[which(all.measures != all.measures[i])], "Measurement density"))
           }
@@ -364,7 +365,8 @@ server <- function(input, output, session){
               removeMarker("null1") %>%
               addRasterImage(map.layer, colors = pal, opacity = 0.8, method = "ngb") %>%
               addLegend(pal = leg.pal, values = values(map.layer), opacity = 1,
-                        title = legend.title, position = "topright") %>%
+                        title = legend.title, position = "topright",
+                        labFormat = labelFormat(transform = function(x) sort(x, decreasing = TRUE))) %>%
               showGroup(c(sensor.measures[i], "Measurement density")) %>%
               hideGroup(c(all.measures[which(all.measures != all.measures[i])], "Measurement value"))
           }
