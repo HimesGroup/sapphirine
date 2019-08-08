@@ -245,11 +245,13 @@ server <- function(input, output, session){
       addRasterImage(map.layer.pm2.5, colors = pal.pm2.5, opacity = 0.8, group = "Measurement value", method = "ngb") %>%
       addLegend(pal = leg.pal.pm2.5, values = values(map.layer.pm2.5), opacity = 1,
                 title = toString(f.titles("PM2.5")), position = "topright",
-                group = "Measurement value") %>%
+                group = "Measurement value",
+                labFormat = labelFormat(transform = function(x) sort(x, decreasing = TRUE))) %>%
       addRasterImage(map.layer.pm2.5.dlog, colors = pal.pm2.5.d, opacity = 0.8, group = "Measurement density", method = "ngb") %>%
       addLegend(pal = leg.pal.pm2.5.d, values = values(map.layer.pm2.5.dlog), opacity = 1, 
                 title = paste("log # of PM2.5 data points"),
-                group = "Measurement density", position = "topright") %>%
+                group = "Measurement density", position = "topright",
+                labFormat = labelFormat(transform = function(x) sort(x, decreasing = TRUE))) %>%
       addCircleMarkers(~lons, ~lats, popup = ~content, stroke = FALSE, fillOpacity = 0.001) %>%
       addMeasure(position = "topleft", primaryLengthUnit = "meters", secondaryLengthUnit = "miles",
                  primaryAreaUnit = "sqmeters", secondaryAreaUnit = "sqmiles") %>%
