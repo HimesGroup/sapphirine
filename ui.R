@@ -19,7 +19,7 @@ ui <- fluidPage(
            tags$p("The map is optimized to allow for immediate switching between different data displays, which requires longer loading times, particularly for higher resolution displays.
                   Please allow up to a few minutes for the map to load."),
            tags$p("For information on our data sources and code, visit ",
-                  tags$a(href = "https://github.com/HimesGroup/sapphirine", "https://github.com/HimesGroup/sapphirine")),
+                  tags$a(href = "https://github.com/HimesGroup/sapphirine", "https://github.com/HimesGroup/sapphirine", target = "_blank")),
            tags$p("Note: Traffic and poverty data are not subject to temporal subsetting.")
            )
    ),
