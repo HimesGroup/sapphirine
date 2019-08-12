@@ -4,7 +4,7 @@
 #Define user interface
 ui <- fluidPage(
   
-  titlePanel("Sensor-based Analysis of Polution in the Philadelphia Region with Information on Neighborhoods and the Environment (SAPPhiRINE)"),
+  titlePanel("Sensor-based Analysis of Pollution in the Philadelphia Region with Information on Neighborhoods and the Environment (SAPPhiRINE)"),
   
   fluidRow(
     
