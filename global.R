@@ -11,6 +11,7 @@ library(mapview)
 library(data.table)
 library(feather)
 library(RColorBrewer)
+library(DescTools)
 
 app.data <- read_feather("../databases/cdatabases/sapphirine/all_data.feather")
 
@@ -72,6 +73,21 @@ f.suffix <- function(z){
 f.zoom <- function(x, y){
   val <- ifelse(x > y, x, y)
   return(as.integer(round(11.47 - 1.5*val, digits = 0)))
+}
+
+f.top <- function(x){
+  no.string <- toString(x)
+  lead.digit <- as.numeric(substr(no.string, 1, 1))
+  no.digits <- nchar(no.string)
+  if(lead.digit == 1){
+    return(RoundTo(x, multiple = 2*10**(no.digits - 2), FUN = ceiling))
+  }
+  else if(lead.digit >= 2 && lead.digit <= 4){
+    return(RoundTo(x, multiple = 5*10**(no.digits - 2), FUN = ceiling))
+  }
+  else if(lead.digit >= 5){
+    return(RoundTo(x, multiple = 10**(no.digits - 1), FUN = ceiling))
+  }
 }
 
 pov.raster <- raster("../databases/cdatabases/sapphirine/poverty.grd")
