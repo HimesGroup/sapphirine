@@ -175,7 +175,7 @@ server <- function(input, output, session){
     for(i in 1:length(all.measures)){
       suffix <- f.suffix(all.measures[i])
       vals <- values(eval(parse(text = paste0("map.layer", suffix))))
-      vals <- c(vals, ceiling(max(vals, na.rm = TRUE))) #Make sure top value is not cut off from legend labels
+      vals <- c(0, vals, ceiling(max(vals, na.rm = TRUE))) #Make sure top value is not cut off from legend labels
       if(!all(is.na(vals))){
         assign(paste0("pal", suffix), 
                colorNumeric(palette = colors, 
@@ -207,7 +207,7 @@ server <- function(input, output, session){
     for(i in 1:length(sensor.measures)){
       suffix <- f.suffix(sensor.measures[i])
       vals <- values(eval(parse(text = paste0("map.layer", suffix, ".dlog"))))
-      vals <- c(vals, ceiling(max(vals, na.rm = TRUE)))
+      vals <- c(0, vals, ceiling(max(vals, na.rm = TRUE)))
       if(!all(is.na(vals))){
         assign(paste0("pal", suffix, ".d"),
                colorNumeric(palette = colors.d, 
@@ -242,10 +242,10 @@ server <- function(input, output, session){
     button.js <- paste0("function(btn, map){ map.setView([", lat.center, ", ", lon.center, "], ", zoom.no, "); }")
     
     vals <- values(map.layer.pm2.5)
-    vals <- c(vals, ceiling(max(vals, na.rm = TRUE)))
+    vals <- c(0, vals, ceiling(max(vals, na.rm = TRUE)))
     
     vals.d <- values(map.layer.pm2.5.dlog)
-    vals.d <- c(vals.d, ceiling(max(vals.d, na.rm = TRUE)))
+    vals.d <- c(0, vals.d, ceiling(max(vals.d, na.rm = TRUE)))
       
     leaflet(content.df) %>%
       setView(lng = lon.center, lat = lat.center, zoom = zoom.no) %>%
@@ -323,7 +323,7 @@ server <- function(input, output, session){
             pal <- eval(parse(text = paste0("pal", suffix)))
             leg.pal <- eval(parse(text = paste0("leg.pal", suffix)))
             vals <- values(map.layer)
-            vals <- c(vals, ceiling(max(vals, na.rm = TRUE)))
+            vals <- c(0, vals, ceiling(max(vals, na.rm = TRUE)))
             
             map %>%
               clearImages() %>%
@@ -370,7 +370,7 @@ server <- function(input, output, session){
             pal <- eval(parse(text = paste0("pal", suffix, ".d")))
             leg.pal <- eval(parse(text = paste0("leg.pal", suffix, ".d")))
             vals <- values(map.layer)
-            vals <- c(vals, ceiling(max(vals, na.rm = TRUE)))
+            vals <- c(0, vals, ceiling(max(vals, na.rm = TRUE)))
             
             map %>%
               clearImages() %>%
