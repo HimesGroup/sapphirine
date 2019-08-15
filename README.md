@@ -1,5 +1,5 @@
 # Sensor-based Analysis of Pollution in the Philadelphia Region with Information on Neighborhoods and the Environment (SAPPHIRINE)
-SAPPHIRINE is an online web-app that integrates pollution and other geospatial data gathered throughout the Greater Philadelphia Area into an interactive map display that optimizes data visualization in a unique, revolutionary manner. 
+SAPPHIRINE is an online web-app that integrates pollution and other geospatial data gathered throughout the Greater Philadelphia Area into an interactive map display that optimizes data visualization in a unique and novel manner. 
 
 Authors: Colin Christie, Sherrie Xie, Avantika Diwadkar, Rebecca E. Greenblatt, Blanca Himes.
 
