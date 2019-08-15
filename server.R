@@ -175,6 +175,7 @@ server <- function(input, output, session){
     for(i in 1:length(all.measures)){
       suffix <- f.suffix(all.measures[i])
       vals <- values(eval(parse(text = paste0("map.layer", suffix))))
+      vals <- c(vals, ceiling(max(vals[which(!is.na(vals))]))) #Make sure top value is not cut off from legend labels
       if(!all(is.na(vals))){
         assign(paste0("pal", suffix), 
                colorNumeric(palette = colors, 
@@ -206,6 +207,7 @@ server <- function(input, output, session){
     for(i in 1:length(sensor.measures)){
       suffix <- f.suffix(sensor.measures[i])
       vals <- values(eval(parse(text = paste0("map.layer", suffix, ".dlog"))))
+      vals <- c(vals, ceiling(max(vals[which(!is.na(vals))])))
       if(!all(is.na(vals))){
         assign(paste0("pal", suffix, ".d"),
                colorNumeric(palette = colors.d, 
@@ -239,16 +241,22 @@ server <- function(input, output, session){
     zoom.no <- f.zoom(input$lon.range[2] - input$lon.range[1], input$lat.range[2] - input$lat.range[1])
     button.js <- paste0("function(btn, map){ map.setView([", lat.center, ", ", lon.center, "], ", zoom.no, "); }")
     
+    vals <- values(map.layer.pm2.5)
+    vals <- c(vals, ceiling(max(vals[which(!is.na(vals))])))
+    
+    vals.d <- values(map.layer.pm2.5.dlog)
+    vals.d <- c(vals.d, ceiling(max(vals.d[which(!is.na(vals.d))])))
+    
     leaflet(content.df) %>%
       setView(lng = lon.center, lat = lat.center, zoom = zoom.no) %>%
       addProviderTiles(providers$Esri.WorldTopoMap) %>%
       addRasterImage(map.layer.pm2.5, colors = pal.pm2.5, opacity = 0.8, group = "Measurement value", method = "ngb") %>%
-      addLegend(pal = leg.pal.pm2.5, values = values(map.layer.pm2.5), opacity = 1,
+      addLegend(pal = leg.pal.pm2.5, values = vals, opacity = 1,
                 title = toString(f.titles("PM2.5")), position = "topright",
                 group = "Measurement value",
                 labFormat = labelFormat(transform = function(x) sort(x, decreasing = TRUE))) %>%
       addRasterImage(map.layer.pm2.5.dlog, colors = pal.pm2.5.d, opacity = 0.8, group = "Measurement density", method = "ngb") %>%
-      addLegend(pal = leg.pal.pm2.5.d, values = values(map.layer.pm2.5.dlog), opacity = 1, 
+      addLegend(pal = leg.pal.pm2.5.d, values = vals.d, opacity = 1, 
                 title = paste("log # of PM2.5 data points"),
                 group = "Measurement density", position = "topright",
                 labFormat = labelFormat(transform = function(x) sort(x, decreasing = TRUE))) %>%
@@ -314,12 +322,14 @@ server <- function(input, output, session){
             
             pal <- eval(parse(text = paste0("pal", suffix)))
             leg.pal <- eval(parse(text = paste0("leg.pal", suffix)))
+            vals <- values(map.layer)
+            vals <- c(vals, ceiling(max(vals[which(!is.na(vals))])))
             
             map %>%
               clearImages() %>%
               removeMarker("null1") %>%
               addRasterImage(map.layer, colors = pal, opacity = 0.8, method = "ngb") %>%
-              addLegend(pal = leg.pal, values = values(map.layer), opacity = 1,
+              addLegend(pal = leg.pal, values = vals, opacity = 1,
                         title = legend.title, position = "topright",
                         labFormat = labelFormat(transform = function(x) sort(x, decreasing = TRUE))) %>%
               showGroup(c(all.measures[i], "Measurement value")) %>%
@@ -359,12 +369,14 @@ server <- function(input, output, session){
             
             pal <- eval(parse(text = paste0("pal", suffix, ".d")))
             leg.pal <- eval(parse(text = paste0("leg.pal", suffix, ".d")))
+            vals <- values(map.layer)
+            vals <- c(vals, ceiling(max(vals[which(!is.na(vals))])))
             
             map %>%
               clearImages() %>%
               removeMarker("null1") %>%
               addRasterImage(map.layer, colors = pal, opacity = 0.8, method = "ngb") %>%
-              addLegend(pal = leg.pal, values = values(map.layer), opacity = 1,
+              addLegend(pal = leg.pal, values = vals, opacity = 1,
                         title = legend.title, position = "topright",
                         labFormat = labelFormat(transform = function(x) sort(x, decreasing = TRUE))) %>%
               showGroup(c(sensor.measures[i], "Measurement density")) %>%
