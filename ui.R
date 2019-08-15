@@ -4,12 +4,12 @@
 #Define user interface
 ui <- fluidPage(
   
-  titlePanel("Sensor-based Analysis of Pollution in the Philadelphia Region with Information on Neighborhoods and the Environment (SAPPhiRINE)"),
+  titlePanel("Sensor-based Analysis of Pollution in the Philadelphia Region with Information on Neighborhoods and the Environment (SAPPHIRINE)"),
   
   fluidRow(
     
     column(12,
-           tags$p("SAPPhiRINE is an interactive geospatial-analysis tool that allows users to visualize pollution and other data throughout the Greater Philadelphia Area with high degrees of geographic and temporal specificity."),
+           tags$p("SAPPHIRINE is an interactive geospatial-analysis tool that allows users to visualize pollution and other data throughout the Greater Philadelphia Area with high degrees of geographic and temporal specificity."),
            tags$p("Adjust the parameters below to your desired values, and then click \"Go\" to display the corresponding map. Slider bars can be fine-tuned using arrow keys.
                   Within the map, you will be able to switch between interactive displays for the measurements listed in the upper right corner, and, for sensor measures, you will be able to visualize either the measurement value or the measurement density.
                   Click on a bin to view the data corresponding to the region the bin encompasses, in accordance with your set parameters. For each data type, the measurement value is given, and where applicable, the number of data points used to estimate the average value (i.e. the measurement density) is given in parentheses.
