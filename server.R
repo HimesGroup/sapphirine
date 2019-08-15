@@ -57,9 +57,19 @@ server <- function(input, output, session){
     assign("map.layer.c", rasterize(crime.data[,3:2], r, crime.data$Crime, fun = sum, na.rm = TRUE), 
            envir = .GlobalEnv)
     
-    assign("map.layer.pov", resample(pov.raster, r, method = "bilinear"), envir = .GlobalEnv)
+    assign("map.layer.pov", 
+           try(resample(pov.raster, r, method = "bilinear"), silent = TRUE),
+           envir = .GlobalEnv)
+    if(length(map.layer.pov) == 1){
+      assign("map.layer.pov", rasterize(data.frame(NA, NA), r, na.rm = TRUE), envir = .GlobalEnv)
+    }
     
-    assign("map.layer.tr", resample(traffic.raster, r, method = "bilinear"), envir = .GlobalEnv)
+    assign("map.layer.tr", 
+           try(resample(traffic.raster, r, method = "bilinear"), silent = TRUE),
+           envir = .GlobalEnv)
+    if(length(map.layer.tr) == 1){
+      assign("map.layer.tr", rasterize(data.frame(NA, NA), r, na.rm = TRUE), envir = .GlobalEnv)
+    }
       
     for(i in 1:length(sensor.measures)){
       suffix <- f.suffix(sensor.measures[i])
@@ -175,8 +185,8 @@ server <- function(input, output, session){
     for(i in 1:length(all.measures)){
       suffix <- f.suffix(all.measures[i])
       vals <- values(eval(parse(text = paste0("map.layer", suffix))))
-      vals <- c(0, vals, f.top(max(vals, na.rm = TRUE))) #Make sure top value is not cut off from legend labels
       if(!all(is.na(vals))){
+        vals <- c(0, vals, f.top(max(vals, na.rm = TRUE)))
         assign(paste0("pal", suffix), 
                colorNumeric(palette = colors, 
                             domain = vals, 
@@ -207,8 +217,8 @@ server <- function(input, output, session){
     for(i in 1:length(sensor.measures)){
       suffix <- f.suffix(sensor.measures[i])
       vals <- values(eval(parse(text = paste0("map.layer", suffix, ".dlog"))))
-      vals <- c(0, vals, f.top(max(vals, na.rm = TRUE)))
       if(!all(is.na(vals))){
+        vals <- c(0, vals, f.top(max(vals, na.rm = TRUE)))
         assign(paste0("pal", suffix, ".d"),
                colorNumeric(palette = colors.d, 
                             domain = vals, 
@@ -242,10 +252,14 @@ server <- function(input, output, session){
     button.js <- paste0("function(btn, map){ map.setView([", lat.center, ", ", lon.center, "], ", zoom.no, "); }")
     
     vals <- values(map.layer.pm2.5)
-    vals <- c(0, vals, f.top(max(vals, na.rm = TRUE)))
-    
+    if(!all(is.na(vals))){
+      vals <- c(0, vals, f.top(max(vals, na.rm = TRUE)))
+    }
+
     vals.d <- values(map.layer.pm2.5.dlog)
-    vals.d <- c(0, vals.d, f.top(max(vals.d, na.rm = TRUE)))
+    if(!all(is.na(vals))){
+      vals.d <- c(0, vals.d, f.top(max(vals.d, na.rm = TRUE)), FUN  = ceiling)
+    }
       
     leaflet(content.df) %>%
       setView(lng = lon.center, lat = lat.center, zoom = zoom.no) %>%
