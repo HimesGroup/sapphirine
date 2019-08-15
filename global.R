@@ -76,7 +76,7 @@ f.zoom <- function(x, y){
 }
 
 f.top <- function(x){
-  no.string <- toString(x)
+  no.string <- toString(as.integer(x))
   lead.digit <- as.numeric(substr(no.string, 1, 1))
   no.digits <- nchar(no.string)
   if(lead.digit == 1){
