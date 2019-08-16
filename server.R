@@ -258,7 +258,7 @@ server <- function(input, output, session){
 
     vals.d <- values(map.layer.pm2.5.dlog)
     if(!all(is.na(vals))){
-      vals.d <- c(0, vals.d, f.top(max(vals.d, na.rm = TRUE)), FUN  = ceiling)
+      vals.d <- c(0, vals.d, f.top(max(vals.d, na.rm = TRUE)))
     }
       
     leaflet(content.df) %>%
