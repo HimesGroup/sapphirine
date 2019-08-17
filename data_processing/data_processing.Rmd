@@ -1,0 +1,777 @@
+---
+title: "Data Processing"
+author: "Colin Christie"
+date: "6/7/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(dplyr)
+library(geojsonio)
+library(feather)
+library(sp)
+library(lubridate)
+library(tools)
+library(rvest)
+library(rlist)
+library(magrittr)
+library(ggplot2)
+library(ggmap)
+library(RColorBrewer)
+
+rm(list = ls(all = TRUE)) #Clear all variable names
+```
+
+Instructions for each sub-process are listed at the top of each corresponding chunk of code.
+
+###Define geographical scope
+```{r, eval = TRUE, warning = FALSE}
+
+#Visit http://eric.clst.org/Stuff/USGeoJSON, download 500k GeoJSON file, and store it in same folder as this script
+
+us.counties <- geojson_read("./gz_2010_us_050_00_500k.json")
+gpa.counties <- data.frame(
+  counties = c("Kent", "New Castle", "Cecil", "Atlantic", "Burlington", "Camden",
+                  "Cape May", "Cumberland", "Gloucester", "Salem", "Berks", "Bucks",
+                  "Chester", "Delaware", "Montgomery", "Philadelphia"),
+  states = c("10", "10", "24", "34", "34", "34", "34", "34", "34", "34", "42", "42", "42", 
+            "42", "42", "42")
+)
+
+#Creates data frame of counties of the Greater Philadelphia Area
+
+borders <- c()
+
+for(i in 1:length(us.counties$features)){
+  
+  county <- us.counties$features[[i]]$properties$NAME
+  state <- us.counties$features[[i]]$properties$STATE
+  
+  if(county %in% gpa.counties$counties){
+    
+    index <- which(gpa.counties$counties == county)
+    
+    if(state == gpa.counties$states[index]){
+    
+      Longitude <- c()
+      Latitude <- c()
+      
+      if(length(us.counties$features[[i]]$geometry$coordinates) == 1){
+        border <- us.counties$features[[i]]$geometry$coordinates[[1]]
+      }
+      
+      else{
+        
+        border <- list()
+        
+        for(k in 1:length(us.counties$features[[i]]$geometry$coordinates)){
+          border <- c(border, us.counties$features[[i]]$geometry$coordinates[[k]][[1]])
+          assign("border", border, envir = .GlobalEnv)
+        }
+        
+      }
+      
+      for(j in 1:length(border)){
+        
+        assign("Longitude", c(Longitude, border[[j]][[1]]), envir = .GlobalEnv)
+        assign("Latitude", c(Latitude, border[[j]][[2]]), envir = .GlobalEnv)
+        
+      }
+      
+      current.border <- paste0("`", county, "`")
+      
+      assign(current.border, data.frame(Longitude, Latitude)) %>%
+        write_feather(paste0("./county_borders/", current.border, ".feather"))
+      
+      assign("borders", c(borders, current.border), envir = .GlobalEnv)
+      
+    }
+    
+  }
+  
+}
+#Creates data frames listing coordinates of each county and stores them as feather files in the folder "county_borders"
+```
+
+##AirCasting data
+
+###Unzipping
+```{r, eval = TRUE, warning = FALSE}
+
+#Visit http://aircasting.org/mobile_map, download desired sessions
+#Store the downloaded zip files in "data_processing" folder in new sub-folder "AirCasting_zips"
+
+ac.zips <- list.files("./AirCasting_zips")
+
+for(i in 1:length(ac.zips)){
+  current.zip <- paste0("./AirCasting_zips/", ac.zips[i])
+  unzip(current.zip, exdir = "./raw_data")
+}
+#Stores unzipped files in a new folder called "raw_data"
+```
+
+###Subsetting
+####Geographic
+```{r, eval = TRUE, warning = FALSE}
+
+ac.files <- list.files("./raw_data")
+
+for(i in 1:length(ac.files)){
+  
+  current.file <- read.csv(paste0("./raw_data/", ac.files[i]), stringsAsFactors = FALSE)
+  
+  for(j in 1:length(borders)){
+    
+    border <- read_feather(paste0("./county_borders/", borders[j], ".feather"))
+    
+    if(point.in.polygon(as.numeric(current.file[12,5]), as.numeric(current.file[12,4]), 
+                        border$Longitude, border$Latitude) == 1){
+      file.copy(paste0("./raw_data/", ac.files[i]), paste0("./subsetted_data/", ac.files[i]))
+    }
+    
+  }
+  
+}
+#Subsets files to include only those within Greater Philadelphia Area
+```
+
+####Investigation-based*
+```{r, eval = FALSE, warning = FALSE, message = FALSE}
+#*Note: this chunk of code is meant to be applied retroactively
+#The subsequent chunk prints a list of sessions that should be reviewed manually
+#The chunk below screens for potential stationary indoor tests, which are undesirable
+#Run the chunk below first, and then investigate the output files
+#Insert distinguishing parts of session names in "file.strings" vector below to remove undesired files
+#Insert distinguishing parts of session names in "inds.exclude" below that you wish not to exclude if they have been excluded due to other subsetting methods (e.g. deleting all files with "inside" except for one)
+#Change eval to TRUE in this chunk, and run it
+#Re-run chunk below to process files without undesired files
+
+new.ac.files <- list.files("./subsetted_data")
+
+file.strings <- c(
+  
+  )
+
+inds <- c() 
+
+for(i in 1:length(file.strings)){
+  assign("inds", c(inds, grep(file.strings[i], new.ac.files)), envir = .GlobalEnv)
+}
+
+inds.exclude <- c() %>%
+  append(grep("INSERT DESIRED FILE STRING", new.ac.files)) %>%
+  append(grep("INSERT DESIRED FILE STRING", new.ac.files))
+
+inds <- inds[which(!inds %in% inds.exclude)]
+#Restores desired files lost in large, efficient subsetting methods
+
+file.remove(paste0("./subsetted_data/", new.ac.files[inds]))
+
+```
+
+###Processing
+```{r, eval = TRUE, warning = FALSE}
+
+#Processes remaining AirCasting files
+
+new.ac.files <- list.files("./subsetted_data")
+
+sensor.measures <- c()
+
+for(i in 1:length(new.ac.files)){
+  
+  current.file <- read.csv(paste0("./subsetted_data/", new.ac.files[i]), 
+                           header = FALSE, stringsAsFactors = FALSE)
+  
+  for(j in 6:ncol(current.file)){
+    
+    measure.type <- gsub(" ","", toString(current.file[6,j]))
+    #Removes spaces so that variable names work properly
+    
+    if(measure.type == "RelativeHumidity"){
+      measure.type <- "Humidity"
+    }
+    
+    if(measure.type == "ParticulateMatter"){
+      
+      if(length(grep("AirBeam2", current.file[4,j])) > 0){
+        measure.type <- gsub("AirBeam2-", "", toString(current.file[4,j]))
+      }
+      
+      else{
+        measure.type <- "PM2.5"
+      }
+      
+    }
+    
+    if(measure.type == "TotalVolatileOrganicCounds"){
+      measure.type <- "VOCs"
+    }
+    
+    sensor.ID <- toString(current.file[2,j])
+    #Extracts AirCasting sensor ID as string
+    
+    current.df <- current.file[10:nrow(current.file), c(3:5, j)] %>%
+    #Selects timestamp, lat, lon, and datum and creates data frame
+
+      dplyr::mutate(Sensor.ID = paste(sensor.ID)) %>%
+      #Adds sensor ID column to data frame
+      
+      rename("Timestamp" = V3, "Latitude" = V4, "Longitude" = V5, 
+             !!measure.type := paste0("V", j))
+      #Renames datum column with the appropriate measure type
+       
+    current.df$Timestamp <- round_date(force_tz(ymd_hms(current.df$Timestamp), 
+                                           tz = "America/New_York"), unit = "second")
+    #Modifies timestamps to workable format in time zone where the measurements were recorded
+    #Use "force time zone" for AirCasting files because they're errantly assumed to be in UTC
+    
+    current.df[,2:4] <- sapply(current.df[,2:4], as.numeric)
+    current.df$Sensor.ID <- sapply(current.df$Sensor.ID, as.factor)
+    #Modifies rest of data from strings to proper forms
+    
+    current.df <- current.df[complete.cases(current.df),]
+    #Removes rows with missing values
+    
+    if(measure.type == "PM2.5"){
+      if(max(current.df$PM2.5) >= 150){
+        print(new.ac.files[i])
+      }
+    }
+    #Used for investigating sessions with aberrantly high values
+    
+    if(range(current.df$Latitude)[2] - range(current.df$Latitude)[1] < 0.0001 ||
+       range(current.df$Longitude)[2] - range(current.df$Longitude)[1] < 0.0001){
+      print(new.ac.files[i])
+    }
+    #Used for investigating potential stationary indoor sessions
+    #Stationary indoor tests are not desirable
+    
+    if(measure.type != "SoundLevel"){
+      
+      if(!exists(measure.type)){ 
+        #Tests whether concatenated data frame has been created yet for given measure type
+        
+        assign(paste(measure.type), current.df, envir = .GlobalEnv) 
+        #Creates said data frame
+        
+        assign("sensor.measures", c(sensor.measures, paste(measure.type)), envir = .GlobalEnv)
+        #Adds measure type to list of measure types
+
+      }
+      
+      else{
+        
+        assign(paste(measure.type), rbind(eval(parse(text = measure.type)), current.df), 
+               envir = .GlobalEnv) 
+        #Appends current data frame to concatenated one
+        
+      }
+      
+    }
+    
+  } #End j loop
+  
+} #End i loop
+
+#Creates concatenated data frame for each measurement type
+#Prints names of sessions in need of manual review
+```
+
+##PurpleAir data
+
+###Webscraping for retrieval
+```{r, eval = FALSE, warning = FALSE}
+
+#Change eval to true to run this chunk
+#Prints out all PurpleAir sensors in Greater Philadelphia Area
+
+url <- "https://www.purpleair.com/sensorlist"
+webpage <- read_html(url)
+
+blocks <- html_nodes(webpage, "tr")
+
+for(i in 1:length(blocks)){
+  
+  sensor <- html_nodes(blocks[i], "b")
+  
+  geopoint <- html_nodes(blocks[i], "a")
+  
+  if(length(geopoint) > 0){
+    
+    lat <- sub(".*lat=", "", geopoint)
+    lat <- sub("&amp;lng=.*", "", lat) %>% as.numeric()
+    
+    lng <- sub(".*lng=", "", geopoint)
+    lng <- sub("&amp;zoom.*", "", lng) %>% as.numeric()
+    
+    for(j in 1:length(borders)){
+      
+      border <- read_feather(paste0("./county_borders/", borders[j], ".feather"))
+      
+      if(point.in.polygon(lng, lat, border$Longitude, border$Latitude) == 1){
+        print(sensor)
+      }
+        
+    }
+    
+  }
+  
+}
+```
+
+###Processing
+```{r, eval = TRUE, warning = FALSE, message = FALSE}
+
+#Visit https://map.purpleair.org/sensorlist, download desired csvs (sensors listed above)
+#Download primary and secondary data files
+#Ignore "B" sensors to keep data frame small
+#Save files in "data_processing" folder in new sub-folder "purp_raw_data"
+
+raw.files.pa <- list.files("./purp_raw_data/")
+
+pa.count.df <- data.frame()
+#Will be used later to account for PurpleAir measurement densities
+
+for(i in seq(1, length(raw.files.pa), 2)){
+  
+  current.file.1 <- read.csv(paste0("./purp_raw_data/", raw.files.pa[i]), header = TRUE, stringsAsFactors = FALSE)
+  current.file.2 <- read.csv(paste0("./purp_raw_data/", raw.files.pa[i+1]), header = TRUE, stringsAsFactors = FALSE)
+  #Imports primary and secondary data for each file
+  
+  sensor.ID <- sub(" \\(.*", "", raw.files.pa[i])
+  #Extracts sensor ID as string
+  
+  latlon <- sub(".*\\(", "", raw.files.pa[i])
+  latlon <- sub("\\).*", "", latlon)
+  latitude <- sub(" .*", "", latlon)
+  longitude <- sub(".* ", "", latlon)
+  #Extracts latitude and longitude
+  
+  base.df.1 <- data.frame(current.file.1[,1]) %>%
+    rename("Timestamp" = current.file.1...1.)
+  base.df.2 <- data.frame(current.file.2[,1]) %>%
+    rename("Timestamp" = current.file.2...1.)
+  #Creates data frame templates starting with timestamp
+  
+  PM2.5.file <- dplyr::mutate(base.df.1, PM2.5 = current.file.1[,10])
+  PM1.file <- dplyr::mutate(base.df.2, PM1 = current.file.2[,9])
+  PM10.file <- dplyr::mutate(base.df.2, PM10 = current.file.2[,10])
+  temp.file <- dplyr::mutate(base.df.1, Temperature = current.file.1[,8])
+  hum.file <- dplyr::mutate(base.df.1, Humidity = current.file.1[,9])
+  #Creates a data frame for each measurement type
+  
+  temp.file$Temperature[which(as.numeric(temp.file$Temperature) < -200)] <- NA
+  temp.file$Temperature[which(as.numeric(temp.file$Temperature) > 130)] <- NA
+  #Gets rid of errant values
+  #Errant reporting was determined by manual review to correspond to the above values
+ 
+  new.files <- list(PM2.5.file, PM1.file, PM10.file, temp.file, hum.file)
+  
+  for(j in 1:length(new.files)){
+    
+    new.files[[j]]$Timestamp <- with_tz(ymd_hms(new.files[[j]]$Timestamp), 
+                                        tzone = "America/New_York") %>%
+      cut(breaks = "hour")
+    #Rounds each timestamp to the nearest hour
+    
+    new.files[[j]][,2] <- as.numeric(new.files[[j]][,2])
+    
+    count.df <- dplyr::mutate(new.files[[j]], Count = 1)
+    #Creates copy of non-aggregated data frame for code below
+
+    measure.type <- colnames(new.files[[j]])[2]
+    #Extracts measurement type as string
+
+    new.files[[j]] <- aggregate(new.files[[j]][,2] ~ Timestamp, 
+                                new.files[[j]], mean) %>%
+      dplyr::mutate(Latitude = latitude, Longitude = longitude, Sensor.ID = paste("PurpleAir:", sensor.ID)) %>%
+      dplyr::rename(!!measure.type := "new.files[[j]][, 2]") %>%
+      dplyr::select(Timestamp, Latitude, Longitude, paste(measure.type), Sensor.ID)
+      #Creates hourly averages in order to shrink down size of data set
+    
+    new.files[[j]]$Timestamp <- as_datetime(new.files[[j]]$Timestamp, tz = "America/New_York")
+    new.files[[j]][,2:4] <- sapply(new.files[[j]][,2:4], as.numeric)
+    new.files[[j]]$Sensor.ID <- sapply(new.files[[j]]$Sensor.ID, as.factor)
+    #Coerces every variable to proper format
+    
+    count.df <- aggregate(Count ~ Timestamp, count.df, sum) %>%
+      dplyr::mutate(Latitude = latitude, Longitude = longitude, Sensor.ID = paste("PurpleAir:", sensor.ID)) %>%
+      dplyr::select(Timestamp, Latitude, Longitude, Count, Sensor.ID)
+    
+    count.df$Timestamp <- as_datetime(count.df$Timestamp, tz = "America/New_York")
+    count.df[,2:4] <- sapply(count.df[,2:4], as.numeric)
+    count.df$Sensor.ID <- sapply(count.df$Sensor.ID, as.factor)
+    
+    assign("pa.count.df", rbind(pa.count.df, count.df), envir = .GlobalEnv)
+    #This data frame will be used later for accounting for PurpleAir measurement densities
+    
+    if(!exists(measure.type)){
+      
+      assign(paste(measure.type), new.files[[j]], envir = .GlobalEnv)
+      
+      assign("sensor.measures", c(sensor.measures, paste(measure.type)), envir = .GlobalEnv)
+      
+    }
+    #Checks if a data frame by the name of the measure type exists, and creates one if not
+    else{
+      assign(paste(measure.type), rbind(eval(parse(text = measure.type)), new.files[[j]]), envir = .GlobalEnv)
+    }
+    
+  }
+     
+}
+#Appends PurpleAir data to the concatenated data frames by measurement type
+```
+
+##Locally stored Himes Lab data
+
+###Unzipping
+```{r, eval = TRUE, warning = FALSE}
+
+#Imports locally stored Himes Lab data
+
+hl.zips <- list.files("./Himes_Lab_zips")
+
+for(i in 1:length(hl.zips)){
+  current.zip <- paste0("./Himes_Lab_zips/", hl.zips[i])
+  unzip(current.zip, exdir = "hl_raw_data")
+}
+```
+
+###Investigation-based subsetting
+```{r, eval = TRUE, warning = FALSE, message = FALSE}
+
+#Again, based off results from "processing" chunk below
+#Applied retroactively
+
+hl.files <- list.files("./hl_raw_data", pattern = ".csv$", recursive = TRUE)
+
+file.strings <- c(
+  "session_40485",
+  "session_40490",
+  "session_40936"
+)
+#Known stationary indoor tests
+
+for(i in 1:length(file.strings)){
+  assign("inds", c(inds, grep(file.strings[i], hl.files)), envir = .GlobalEnv)
+}
+
+file.remove(paste0("./hl_raw_data/", hl.files[inds]))
+#Removes known stationary indoor tests
+```
+
+###Processing
+```{r, eval = TRUE, warning = FALSE, message = FALSE}
+
+hl.files <- list.files("./hl_raw_data", pattern = ".csv$", recursive = TRUE)
+
+for(i in 1:length(hl.files)){
+  
+  current.file <- read.csv(paste0("./hl_raw_data/", hl.files[i]), header = FALSE,
+                           stringsAsFactors = FALSE)
+  
+  splits <- grep("Timestamp", current.file[,1])
+  #Marks indices where new measurement types begin
+  
+  for(j in 1:length(splits)){
+    
+    measure.type <- gsub(" ","", toString(current.file[splits[j]-1, 3]))
+    
+    if("measure.type" == "ParticulateMatter"){
+      measure.type <- "PM2.5"
+    }
+    
+    sensor.ID <- toString(current.file[splits[j]-1, 2])
+    
+    row.start <- splits[j] + 1
+
+    if(j < length(splits)){
+      row.end <- splits[j+1] - 3
+    }
+    
+    else{
+      row.end <- nrow(current.file)
+    }
+    
+    current.df <- current.file[row.start:row.end, ] %>%
+    #Creates data frame for each measure type
+      
+      dplyr::mutate("Sensor.ID" = paste(sensor.ID))
+    
+    if(current.df[1,2] < 0){
+      current.df <- rename(current.df, "Timestamp" = V1, "Longitude" = V2, "Latitude" = V3, !!measure.type := V4)
+    }
+        
+    else if(current.df[1,2] > 0){
+      current.df <- rename(current.df, "Timestamp" = V1, "Latitude" = V2, "Longitude" = V3, !!measure.type := V4)
+    }
+    #Accounts for the fact that latitude and longitude are randomly mislabeled in some csvs
+    
+    current.df <- dplyr::select(current.df,
+                                Timestamp, Latitude, Longitude, paste(measure.type), Sensor.ID)
+    #Arranges columns in correct order
+    
+    current.df$Timestamp <- round_date(ymd_hms(current.df$Timestamp, 
+                                               tz = "America/New_York"), unit = "second")
+    #Don't need to "force time zone" for these files (knows its UTC-4 or UTC-5)
+    
+    current.df[,2:4] <- sapply(current.df[,2:4], as.numeric)
+    current.df$Sensor.ID <- sapply(current.df$Sensor.ID, as.factor)
+    #Modifies rest of data from strings to proper forms
+    
+    current.df <- current.df[complete.cases(current.df),]
+    #Removes rows with missing values
+    
+    if(measure.type == "PM2.5"){
+      if(max(current.df$PM2.5) >= 150){
+        print(hl.files[i])
+      }
+    }
+    #Used for investigating sessions with aberrantly high values
+    
+    if(range(current.df$Latitude)[2] - range(current.df$Latitude)[1] < 0.0001 ||
+       range(current.df$Longitude)[2] - range(current.df$Longitude)[1] < 0.0001){
+      print(hl.files[i])
+    }
+    #Used for investigating potential stationary indoor sessions
+    
+    if(!exists("sensor.measures")){
+      assign("sensor.measures", c(), envir = .GlobalEnv)
+    }
+    
+    if(measure.type != "SoundLevel"){
+      
+      if(!exists(measure.type)){ 
+        #Tests whether concatenated data frame has been created yet for given measure type
+        
+        assign(paste(measure.type), current.df, envir = .GlobalEnv) 
+        #Creates said data frame if necessary
+        
+        assign("sensor.measures", c(sensor.measures, paste(measure.type)), envir = .GlobalEnv)
+        #Adds measure type to list of measure types
+
+      }
+      
+      else{
+        
+        assign(paste(measure.type), rbind(eval(parse(text = measure.type)), current.df), 
+               envir = .GlobalEnv) 
+        #Appends current data frame to concatenated one
+        
+      }
+      
+    }
+    
+  } #End j loop
+
+} #End i loop
+
+#Appends these data to the concatenated data frames by measurement type
+#Prints names of sessions in need of manual review
+#Investigation has already been conducted for these particular files, so manual review is unnecessary
+#Stationary indoor sessions already removed in chunk above
+#File-printing script left in code for reproducibility, even though unnecessary
+```
+
+##Creation of comprehensive data frame
+```{r, eval = TRUE, warning = FALSE, message = FALSE}
+
+Temperature$Temperature <- round(5/9*(Temperature$Temperature - 32), digits = 1)
+#Converts to Celsius
+
+for(i in 1:length(sensor.measures)){
+  
+  current.df <- eval(parse(text = sensor.measures[i]))
+  
+  if(i == 1){
+    combined.df <- current.df
+  }
+  
+  else{
+    
+    combined.df <- full_join(combined.df, current.df, 
+                             by = c("Timestamp", "Latitude", "Longitude", "Sensor.ID"))
+  }
+  
+  assign("all.data", combined.df, envir = .GlobalEnv)
+  
+}
+
+all.data <- distinct(all.data) %>%
+  dplyr::select(Timestamp, Latitude, Longitude, Sensor.ID, Temperature, Humidity, PM1, PM2.5, PM10)
+#Removes duplicated rows and then places columns in correct order
+
+all.data[which(all.data$Humidity >= 80), c("PM1", "PM2.5", "PM10")] <- NA
+#PM measurements at 80% humidity or greater are unreliable
+
+all.data$Humidity[which(all.data$Humidity > 100)] <- NA
+#Removes some errant values
+
+all.data <- all.data[which(rowSums(is.na(all.data[,5:9])) != 5),]
+#Removes rows without any sensor data
+
+all.data$Sensor.ID <- as.character(all.data$Sensor.ID)
+#Converts from factor to character to allow for string manipulation/editing
+
+uPAs <- c(grep("BME280", all.data$Sensor.ID), grep("Puprple", all.data$Sensor.ID))
+all.data$Sensor.ID[uPAs] <- "Untitled PurpleAir sensors"
+
+uABs <- c(which(all.data$Sensor.ID == "AirBeam:"), which(all.data$Sensor.ID == "AirBeam2:"))
+all.data$Sensor.ID[uABs] <- "Untitled AirBeam sensors"
+
+all.data$Sensor.ID <- as.factor(all.data$Sensor.ID)
+#Converts back to factor
+
+write_feather(all.data, "../databases/all_data.feather")
+#"Write feather" is called multiple times in order to save progress; each time, will be overwritten
+
+```
+
+##Addition of crime data
+
+###Philadelphia Only
+```{r, eval = TRUE, warning = FALSE, message = FALSE}
+
+#Visit https://www.opendataphilly.org/dataset/crime-incidents and download "Crime Incidents (CSV)"
+#Save in data_processing folder as "crime_data.csv"
+
+crime.df <- read.csv("./crime_data.csv", header = TRUE, stringsAsFactors = FALSE) %>%
+  dplyr::select(dispatch_date_time, lat, lng) %>%
+  dplyr::mutate("Crime" = 1) %>%
+  dplyr::rename("Timestamp" = dispatch_date_time, "Latitude" = lat, "Longitude" = lng)
+#Imports data frame and selects desired variables
+
+crime.df$Timestamp <- ymd_hms(crime.df$Timestamp, tz = "America/New_York")
+#Converts timestamp to workable format
+
+crime.df[,2:3] <- sapply(crime.df[,2:3], as.numeric)
+
+crime.df <- crime.df[complete.cases(crime.df),] %>%
+#Deletes rows with missing values
+  
+  subset(date(Timestamp) %in% ymd("2015-06-01"):ymd("2019-05-31"))
+  #Subsets data to temporal scope of SAPPHIRINE
+
+all.data <- full_join(all.data, crime.df, by = c("Timestamp", "Latitude", "Longitude"))
+#Joins crime data to the comprehensive data frame
+
+bad.rows <- c(which(all.data$Latitude == 0), which(all.data$Longitude == 0))
+
+all.data <- all.data[-bad.rows,]
+#Removes rows with errant latitude and longitude values
+
+write_feather(all.data, "../databases/all_data.feather")
+#Overwrites saved file
+
+```
+
+##Final processing for app
+```{r, eval = TRUE, warning = FALSE, message = FALSE}
+
+new.pa.count.df <- data.frame()
+
+for(i in seq(1, nrow(pa.count.df) - 4, 5)){
+  
+  current.section <- pa.count.df[i:i+4,]
+  
+  row <- which(current.section$Count == max(current.section$Count))
+  
+  assign("new.pa.count.df", rbind(new.pa.count.df, current.section[row,]), envir = .GlobalEnv)
+  
+}
+
+#Deletes repeated PurpleAir rows differing only in count and takes the max count value of them
+#Repeated rows correspond to simultaneous measurments for different data types
+#Sometimes, 1 or 2 values will be missing for a given variable, so max value is taken
+
+all.data <- left_join(all.data, new.pa.count.df, by = c("Timestamp", "Latitude", "Longitude", "Sensor.ID")) %>%
+  mutate(Day = date(Timestamp), Time = strftime(Timestamp, format = "%H:%M"))
+#Creates two new columns for in-app subsetting of data by date and by time, as well as one column for measurement density
+#Gives proper count for aggregated PurpleAir data
+
+all.data$Sensor.ID <- sapply(all.data$Sensor.ID, as.factor)
+
+all.data$Count[which(is.na(all.data$Count))] <- 1
+#Gives count value for all other data points
+#Other data points were not consolidated into hourly averages, so each row corresponds to 1 data point
+
+all.data <- distinct(all.data)
+#One final check to make sure no repeated rows
+
+write_feather(all.data, "../databases/all_data.feather")
+#Overwrites saved file
+
+```
+
+##EPA data
+
+###Unzipping
+```{r, eval = TRUE, warning = FALSE, message = FALSE}
+
+#For interpolated comparisons
+#Visit https://aqs.epa.gov/aqsweb/airdata/download_files.html
+#Download Daily Summary Data for PM2.5
+#Store zip files in "data_processing" folder in new sub-folder "epa_zips"
+
+epa.zips <- list.files("./epa_zips")
+
+for(i in 1:length(epa.zips)){
+  unzip(paste0("./epa_zips/", epa.zips[i]), exdir = "./epa_raw_data")
+}
+#Unzips EPA files into new folder "epa_raw_data"
+```
+
+###Spatial and temporal subsetting
+```{r, eval = TRUE, warning = FALSE, message = FALSE}
+
+epa.files <- list.files("./epa_raw_data")
+
+assign("epa.df", data.frame(), envir = .GlobalEnv)
+#Creates shell for comprehensive data frame of all EPA data
+
+for(i in 1:length(epa.files)){
+  
+  current.file <- read.csv(paste0("./epa_raw_data/", epa.files[i]),
+                           header = TRUE, stringsAsFactors = FALSE)
+
+  sub.epa.df <- data.frame()
+  #Creates shell for data frame of desired EPA data from current csv file
+  
+  for(j in 1:nrow(gpa.counties)){
+    
+    inds1 <- which(current.file$County.Name == gpa.counties[j,1])
+    inds2 <- which(current.file$State.Code == gpa.counties[j,2])
+    inds <- intersect(inds1, inds2)
+    #Ensures the counties and states are correctly matched
+    
+    current.df <- current.file[inds,]
+    #Extracts data from GPA counties
+    
+    assign("sub.epa.df", rbind(sub.epa.df, current.df), envir = .GlobalEnv)
+    #Adds data to new data frame
+  }
+  
+  sub.epa.df <- dplyr::select(sub.epa.df, Date.Local, Latitude, Longitude, Arithmetic.Mean) %>%
+    dplyr::rename("Day" = Date.Local, "PM2.5" = Arithmetic.Mean)
+  #Selects desired variables from new data frame
+  
+  sub.epa.df$Day <- ymd(sub.epa.df$Day)
+  sub.epa.df[,2:4] <- sapply(sub.epa.df[,2:4], as.numeric)
+  #Modifies data to workable formats
+  
+  sub.epa.df <- subset(sub.epa.df, Day %in% ymd("2015-06-01"):ymd("2019-05-31"))
+  #Subsets data to temporal scope of SAPPHIRINE
+  
+  assign("epa.df", rbind(epa.df, sub.epa.df), envir = .GlobalEnv)
+  #Concatenates data with data frame of all desired EPA data
+  
+}
+
+write_feather(epa.df, "./epa_data.feather")
+#Saves comprehensive EPA data frame
+
+```
