@@ -57,16 +57,14 @@ server <- function(input, output, session){
     assign("map.layer.c", rasterize(crime.data[,3:2], r, crime.data$Crime, fun = sum, na.rm = TRUE), 
            envir = .GlobalEnv)
     
-    assign("map.layer.pov", 
-           try(resample(pov.raster, r, method = "bilinear"), silent = TRUE),
-           envir = .GlobalEnv)
+    map.layer.pov <- try(resample(pov.raster, r, method = "bilinear"), silent = TRUE)
+    
     if(length(map.layer.pov) == 1){
       assign("map.layer.pov", rasterize(data.frame(NA, NA), r, na.rm = TRUE), envir = .GlobalEnv)
     }
     
-    assign("map.layer.tr", 
-           try(resample(traffic.raster, r, method = "bilinear"), silent = TRUE),
-           envir = .GlobalEnv)
+    map.layer.tr <- try(resample(traffic.raster, r, method = "bilinear"), silent = TRUE)
+    
     if(length(map.layer.tr) == 1){
       assign("map.layer.tr", rasterize(data.frame(NA, NA), r, na.rm = TRUE), envir = .GlobalEnv)
     }
