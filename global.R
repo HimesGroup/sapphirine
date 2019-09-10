@@ -105,4 +105,4 @@ traffic.raster <- raster("../databases/cdatabases/sapphirine/traffic_raster.grd"
 
 our.sensors <- paste0("AirBeam:", our.sensors)
 
-sensor.names <- names(table(app.data$Sensor.ID))
+sensor.names <- levels(app.data$Sensor.ID)
