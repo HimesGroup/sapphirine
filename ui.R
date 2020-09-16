@@ -1,6 +1,4 @@
 
-.libPaths("/home/maya/R/x86_64-pc-linux-gnu-library/3.4/") #mapview dependencies, use only for online version
-
 #Define user interface
 ui <- fluidPage(
   

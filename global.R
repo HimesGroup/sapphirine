@@ -1,5 +1,4 @@
 
-.libPaths("/home/maya/R/x86_64-pc-linux-gnu-library/3.4/") #mapview dependencies, use only for online version
 library(shiny)
 library(lubridate)
 library(dplyr)
@@ -13,7 +12,7 @@ library(feather)
 library(RColorBrewer)
 library(DescTools)
 
-app.data <- read_feather("../databases/cdatabases/sapphirine/all_data.feather")
+app.data <- read_feather("databases/all_data.feather")
 
 hours <- c("00:00",
            "01:00",
@@ -95,13 +94,13 @@ f.top <- function(x){
   }
 }
 
-pov.raster <- raster("../databases/cdatabases/sapphirine/poverty.grd")
+pov.raster <- raster("databases/poverty.grd")
 
-our.sensors <- fread("../databases/cdatabases/sapphirine/LIMEA_AIRBEAM_SUMMARY.csv", header = TRUE, stringsAsFactors = FALSE)$AirBeamID[1:15]
+our.sensors <- fread("databases/LIMEA_AIRBEAM_SUMMARY.csv", header = TRUE, stringsAsFactors = FALSE)$AirBeamID[1:15]
 
-city.border <- read.csv("../databases/cdatabases/sapphirine/city_border.csv", header = TRUE)[,2:3]
+city.border <- read.csv("databases/city_border.csv", header = TRUE)[,2:3]
 
-traffic.raster <- raster("../databases/cdatabases/sapphirine/traffic_raster.grd")
+traffic.raster <- raster("databases/traffic_raster.grd")
 
 our.sensors <- paste0("AirBeam:", our.sensors)
 
