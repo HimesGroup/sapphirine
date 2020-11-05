@@ -24,6 +24,8 @@ ui <- fluidPage(
   
   wellPanel(
     
+    h4(strong("Sensor and Geospatial Data"), align = "center"),
+    
     fluidRow(
       
       column(3,
@@ -110,7 +112,41 @@ ui <- fluidPage(
     
   ), #End WellPanel
   
+#Add in FluidRow here if need be
+    
   fluidRow(
+    
+    column(6,
+           
+         wellPanel(h4(strong('Annual EPA Estimates'), align = "center"),
+                      
+          fluidRow(
+            column(4,
+                   pickerInput("EPA_yr", label = "Year",
+                      choices = c(2015:2019))
+                   ),
+            column(4,
+                   pickerInput("EPA_var", label = "Pollutant",
+                               choices = c("PM2.5", "PM10", "SO2", 
+                               "NO2", "O3", "CO"))
+                   ),
+            column(2,
+                   br(),
+                   actionButton('EPA_go', "Go")
+                   )
+                  )
+         )
+         
+    ),
+    
+    column(6,
+           wellPanel(h4(strong('Data Downloader'), align = "center"))
+           
+    )
+    
+    
+  ),
+
     
     column(1),
     
@@ -121,7 +157,6 @@ ui <- fluidPage(
     ),
     
     column(1)
-    
-  )
+#End FluidRow here if need be    
   
            ) #End UI

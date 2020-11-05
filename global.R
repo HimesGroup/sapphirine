@@ -11,6 +11,8 @@ library(data.table)
 library(feather)
 library(RColorBrewer)
 library(DescTools)
+library(stringr)
+library(tools)
 
 app.data <- read_feather("databases/all_data.feather")
 
@@ -57,12 +59,24 @@ suffix.list <- c(".t", ".h", ".pm1", ".pm2.5", ".pm10", ".c", ".pov", ".tr")
 
 titles.df <- data.frame(cbind(all.measures, titles.list, suffix.list))
 
+epa.titles.df <- cbind(c("SO2", "NO2", "O3", "CO", "PM2.5", "PM10"),
+                       c("Avg. SO2 Conc. (ppb)", "Avg. NO2 Conc. (ppb)", 
+                         "Avg. O3 Conc. (ppb)", "Avg CO Conc. (ppm)",
+                         "Avg. PM2.5 Conc. (\u03BCg/m\u00B3)", 
+                         "Avg. PM10 Conc. (\u03BCg/m\u00B3)")
+                       )
+
 f.titles <- function(y){
   index <- which(titles.df[,1] == y)
   return(titles.df[index, 2])
 }
 
 f.titles.d <- function(w){paste("log # of", w, "data points")}
+
+f.titles.epa <- function(a){
+  index <- which(epa.titles.df[,1] == a)
+  return(epa.titles.df[index, 2])
+}
 
 f.suffix <- function(z){
   index <- which(titles.df[,1] == z)
@@ -105,3 +119,58 @@ traffic.raster <- raster("databases/traffic_raster.grd")
 our.sensors <- paste0("AirBeam:", our.sensors)
 
 sensor.names <- levels(app.data$Sensor.ID)
+
+epa.monitors <- list.files("databases/epa_monitors")
+for(i in 1:length(epa.monitors)){
+  current.frame <- read_feather(paste0("databases/epa_monitors/", epa.monitors[i]))
+  yr.frame.name <- paste0(file_path_sans_ext(epa.monitors[i]), '_mons')
+  assign(yr.frame.name, current.frame, envir = .GlobalEnv)
+}
+
+epa.yrs <- c(2015:2019)#For later indexing in server
+
+epa.ras.files <- list.files('databases/epa_annual_rasters')
+for(j in 1:length(epa.ras.files)){
+  current.ras <- brick(paste0('databases/epa_annual_rasters/', epa.ras.files[j]))
+  ras.name <- paste0(file_path_sans_ext(epa.ras.files[j]), '_ras')
+  assign(ras.name, current.ras, envir = .GlobalEnv)
+}
+
+#Function for adding circles to EPA monitor legend
+addLegendEPA <- function(map, colors, labels, sizes, opacity = 0.8){
+  colorAdditions <- paste0(colors, "; border-radius: 50%; width:", sizes, 
+                           "px;margin-top: 4.5px;height:", sizes, "px")  
+  labelAdditions <- paste0("<div style='display: inline-block;height: ", sizes, 
+                           "px;margin-top: 0px;line-height: ", sizes, "px;'>", 
+                           labels, "</div>")
+  
+  return(addLegend(map, colors = colorAdditions, 
+                   labels = labelAdditions, opacity = opacity))
+}
+
+#Reverse legend direction
+myLabelFormat = function(prefix = "", suffix = "", between = " &ndash; ", digits = 3, 
+                         big.mark = ",", transform = identity, t.val = Inf) {
+  formatNum <- function(x) {
+    format(round(transform(x), digits), trim = TRUE, scientific = FALSE, 
+           big.mark = big.mark)
+  }
+  function(type, ...) {
+    switch(type, numeric = (function(cuts) {
+      cuts <- sort(cuts, decreasing = T) #just added
+      paste0(prefix, formatNum(cuts), ifelse(cuts == t.val, "+", ""))
+    })(...), bin = (function(cuts) {
+      n <- length(cuts)
+      paste0(prefix, formatNum(cuts[-n]), between, formatNum(cuts[-1]), 
+             suffix)
+    })(...), quantile = (function(cuts, p) {
+      n <- length(cuts)
+      p <- paste0(round(p * 100), "%")
+      cuts <- paste0(formatNum(cuts[-n]), between, formatNum(cuts[-1]))
+      paste0("<span title=\"", cuts, "\">", prefix, p[-n], 
+             between, p[-1], suffix, "</span>")
+    })(...), factor = (function(cuts) {
+      paste0(prefix, as.character(transform(cuts)), suffix)
+    })(...))
+  }
+}

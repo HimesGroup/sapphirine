@@ -455,6 +455,63 @@ server <- function(input, output, session){
                                       )))
     }
     
+  }) #End observeEvent for switching between variables in map
+  
+  epa.plot <- eventReactive(input$EPA_go, {
+    
+    mon.name <- paste("EPA", input$EPA_var, toString(input$EPA_yr), "mons", sep = "_")   
+    mon.frame <- eval(parse(text = mon.name))
+    
+    epa.ras.name <- paste("EPA", input$EPA_var, "annual", "ras", sep = "_")
+    epa.ras <- eval(parse(text = epa.ras.name))[[which(epa.yrs == input$EPA_yr)]]
+    
+    vals <- values(epa.ras)
+    if(all(is.na(vals))){vals <- c(0, vals)}
+    
+    #Maybe add in if(is.all(na)) thing
+    pal.epa <- colorNumeric(palette = brewer.pal(7, "YlOrRd"),
+                            domain = vals,
+                            na.color = "transparent"
+                        )
+    leg.pal.epa <- colorNumeric(palette = brewer.pal(7, "YlOrRd"),
+                                domain = vals,
+                                na.color = "transparent",
+                                reverse = TRUE
+                        )
+    epa.mon.pal <- colorFactor(palette = "blue", domain = "EPA Monitor Locations")
+    
+    lon.center <- -75.15
+    lat.center <- 40.00
+    zoom.no <- 8
+    button.js <- paste0("function(btn, map){ map.setView([", 
+                        lat.center, ", ", lon.center, "], ", zoom.no, "); }")
+    
+                            
+    leaflet(mon.frame) %>%
+      setView(lng = lon.center, lat = lat.center, zoom = zoom.no) %>%
+      addProviderTiles(providers$Esri.WorldTopoMap) %>%
+      addRasterImage(epa.ras, colors = pal.epa, opacity = 0.8, method = "ngb") %>%
+      addLegend(pal = leg.pal.epa, values = vals, opacity = 1,
+                title = f.titles.epa(input$EPA_var), position = "topright",
+                labFormat = myLabelFormat()) %>%
+      addCircleMarkers(~Longitude, ~Latitude,
+                       radius = 3, color = "blue", fillOpacity = 0.5, stroke = FALSE) %>% 
+      addMeasure(position = "topleft", primaryLengthUnit = "meters", secondaryLengthUnit = "miles",
+                 primaryAreaUnit = "sqmeters", secondaryAreaUnit = "sqmiles") %>%
+      addEasyButton(easyButton(
+        icon = "fa-crosshairs", title = "Recenter",
+        onClick = JS(paste(button.js))
+      )) %>%
+      leafem::addMouseCoordinates() %>%
+      addLegendEPA(colors = "blue", labels = "EPA Monitor Locations", sizes = 9)
+    }
+                             
+  )  
+  
+  observeEvent(input$EPA_go, {
+    output$int.map <- renderLeaflet({
+      withProgress(message = "Loading map...", {epa.plot()})
+    })
   })
   
 }#End server function
