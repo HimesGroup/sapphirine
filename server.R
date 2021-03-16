@@ -7,12 +7,7 @@ server <- function(input, output, session){
   observeEvent(input$Instructions_b1, {
     toggle("Instructions_1")
   })
-  
-  observeEvent(input$Instructions_b2, {
-    toggle("Instructions_2")
-  })
-  
-  
+
   ## Plot map on GO -------------
   map.plot <- eventReactive(input$go, {
     
@@ -44,7 +39,7 @@ server <- function(input, output, session){
         strftime(Timestamp, format = '%H:%M', tz = 'America/New_York') %in% 
           mins[grep(input$times[1], mins) : upper.ind])
     
-    sensor.data <- map.data %>% dplyr::filter(Sensor.ID %in% c(input$sensors.hl, input$sensors.o))
+    sensor.data <- map.data %>% dplyr::filter(Sensor.ID %in% input$sensors)
     
     assign('download.data', subset(sensor.data, 
                                    select = -Count), 
@@ -61,12 +56,8 @@ server <- function(input, output, session){
            envir = .GlobalEnv)
     
     # Poverty raster
-    assign("map.layer.pov", 
-           try(resample(pov.raster, r, method = "bilinear"), silent = TRUE),
+    assign("map.layer.pov", rasterize(pov.shp, r, field = pov.shp$ADI_NAT, fun = mean, na.rm = TRUE),
            envir = .GlobalEnv)
-    if(length(map.layer.pov) == 1){
-      assign("map.layer.pov", rasterize(data.frame(NA, NA), r, na.rm = TRUE), envir = .GlobalEnv)
-    }
     
     # Traffic raster
     assign("map.layer.tr", 
@@ -165,22 +156,8 @@ server <- function(input, output, session){
     
     # Traffic
     trafl <- vector()
-    tpoints <- point.in.SpatialPolygons(
-      xFromCell(map.layer.tr, total_length), 
-      yFromCell(map.layer.tr, total_length),
-      city.border)
-    
-    # NA
+    trafl[which(!is.na(values(map.layer.tr)))] <- paste0("Avg. AADT: ","<b style = \"color:DodgerBlue\">", round(values(map.layer.tr)[which(!is.na(values(map.layer.tr)))], digits = 0), "</b>","<br/>","</b>")
     trafl[which(is.na(values(map.layer.tr)))] <- paste0("Avg. AADT: ","<b style = \"color:Tomato\">", "no data", "</b>","<br/>","</b>")
-    
-    # tpoint = 1 and not NA
-    indt1 <- intersect(which(!is.na(values(map.layer.tr))),which(tpoints==1))
-    trafl[indt1] <- paste0("Avg. AADT: ","<b style = \"color:DodgerBlue\">", round(values(map.layer.tr)[indt1], digits = 0), "</b>","<br/>","</b>")
-    
-    # tpoint != 1 and not NA
-    indt2 <- intersect(which(!is.na(values(map.layer.tr))),which(tpoints!=1))
-    trafl[indt2] <- paste0("Avg. AADT: ","<b style = \"color:DodgerBlue\">", round(values(map.layer.tr)[indt2], digits = 0), "</b>",
-                           " (", "<b style = \"color:Tomato\">", "Phil. only", "</b>", ")","<br/>","</b>")
     
     ## Final content vector -------------
     content <- paste0(lat_lon,templ,humidl,pm1l,pm2.5l,pm10l,crimel,povl,trafl)
@@ -289,6 +266,20 @@ server <- function(input, output, session){
       vals.d <- c(0, vals.d, f.top(max(vals.d, na.rm = TRUE)))
     }
     
+    ##Save raster data for downloading
+    download.ras.df <- brick(map.layer.pm2.5, map.layer.pm1, map.layer.pm10,
+                             map.layer.t, map.layer.h, map.layer.pov, map.layer.tr,
+                             map.layer.pm2.5.dlog, map.layer.pm1.dlog, map.layer.pm10.dlog,
+                             map.layer.t.dlog, map.layer.h.dlog) %>%
+      rasterToPoints()
+    
+    colnames(download.ras.df)[3:ncol(download.ras.df)] <- c('PM2.5', 'PM1', 'PM10', 'Temperature',
+                                                            'Humidity', 'ADI', 'AADT', 'log10 PM2.5 count',
+                                                            'log10 PM1 count', 'log10 PM10 count',
+                                                            'log10 Temp. count', 'log10 Hum. count')
+    
+    assign('download.ras.df', as_tibble(download.ras.df), envir = .GlobalEnv)
+    
     ## Initialize leaflet -------------
     content_map <- leaflet(content.df) %>%
       setView(lng = lon.center, lat = lat.center, zoom = zoom.no) %>%
@@ -317,7 +308,7 @@ server <- function(input, output, session){
       showGroup(c("PM\u2082.\u2085", "Measurement value")) %>%
       hideGroup(c(all.measures.sub[which(all.measures.sub != "PM\u2082.\u2085")],
                   "Measurement density"))
-##>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>###    
+
     #Plot individual maps side-by-side in a grid
     #Make PM2.5 maps
     pm25 <- leaflet(content.df) %>%
@@ -327,7 +318,11 @@ server <- function(input, output, session){
       addLegend(pal = leg.pal.pm2.5, values = vals, opacity = 1,
                 title = toString(f.titles("PM2.5")), position = "topright",
                 group = "Measurement value",
-                labFormat = labelFormat(transform = function(x) sort(x, decreasing = TRUE)))
+                labFormat = myLabelFormat()) %>%
+      addEasyButton(easyButton(
+        icon = "fa-crosshairs", title = "Recenter",
+        onClick = JS(paste(button.js))
+      ))
     
     #Make PM1 maps
     vals1 <- values(map.layer.pm1)
@@ -338,7 +333,11 @@ server <- function(input, output, session){
       addLegend(pal = leg.pal.pm1, values = vals1, opacity = 1,
                 title = toString(f.titles("PM1")), position = "topright",
                 group = "Measurement value",
-                labFormat = labelFormat(transform = function(x) sort(x, decreasing = TRUE)))
+                labFormat = myLabelFormat()) %>%
+      addEasyButton(easyButton(
+        icon = "fa-crosshairs", title = "Recenter",
+        onClick = JS(paste(button.js))
+      ))
     
     #Make PM10 maps
     vals10 <- values(map.layer.pm10)
@@ -349,7 +348,11 @@ server <- function(input, output, session){
       addLegend(pal = leg.pal.pm10, values = vals10, opacity = 1,
                 title = toString(f.titles("PM10")), position = "topright",
                 group = "Measurement value",
-                labFormat = labelFormat(transform = function(x) sort(x, decreasing = TRUE)))
+                labFormat = myLabelFormat()) %>%
+      addEasyButton(easyButton(
+        icon = "fa-crosshairs", title = "Recenter",
+        onClick = JS(paste(button.js))
+      ))
     
     #Make temperature maps
     valst <- values(map.layer.t)
@@ -360,7 +363,11 @@ server <- function(input, output, session){
       addLegend(pal = leg.pal.t, values = valst, opacity = 1,
                 title = toString(f.titles("Temperature")), position = "topright",
                 group = "Measurement value",
-                labFormat = labelFormat(transform = function(x) sort(x, decreasing = TRUE)))
+                labFormat = myLabelFormat()) %>%
+      addEasyButton(easyButton(
+        icon = "fa-crosshairs", title = "Recenter",
+        onClick = JS(paste(button.js))
+      ))
     
     #Make humidity maps
     valsh <- values(map.layer.h)
@@ -371,7 +378,11 @@ server <- function(input, output, session){
       addLegend(pal = leg.pal.h, values = valsh, opacity = 1,
                 title = toString(f.titles("Humidity")), position = "topright",
                 group = "Measurement value",
-                labFormat = labelFormat(transform = function(x) sort(x, decreasing = TRUE)))
+                labFormat = myLabelFormat()) %>%
+      addEasyButton(easyButton(
+        icon = "fa-crosshairs", title = "Recenter",
+        onClick = JS(paste(button.js))
+      ))
     
     #Make crime maps
     valsc <- values(map.layer.c)
@@ -382,7 +393,11 @@ server <- function(input, output, session){
       addLegend(pal = leg.pal.c, values = valsc, opacity = 1,
                 title = toString(f.titles("Crime")), position = "topright",
                 group = "Measurement value",
-                labFormat = labelFormat(transform = function(x) sort(x, decreasing = TRUE)))
+                labFormat = myLabelFormat()) %>%
+      addEasyButton(easyButton(
+        icon = "fa-crosshairs", title = "Recenter",
+        onClick = JS(paste(button.js))
+      ))
     
     #Make poverty maps
     valspov <- values(map.layer.pov)
@@ -391,9 +406,13 @@ server <- function(input, output, session){
       addProviderTiles(providers$Esri.WorldTopoMap) %>%
       addRasterImage(map.layer.pov, colors = pal.pov, opacity = 0.8, group = "Measurement value", method = "ngb") %>%
       addLegend(pal = leg.pal.pov, values = valspov, opacity = 1,
-                title = toString(f.titles("Poverty")), position = "topright",
+                title = toString(f.titles("Area Deprivation Index")), position = "topright",
                 group = "Measurement value",
-                labFormat = labelFormat(transform = function(x) sort(x, decreasing = TRUE)))
+                labFormat = myLabelFormat()) %>%
+      addEasyButton(easyButton(
+        icon = "fa-crosshairs", title = "Recenter",
+        onClick = JS(paste(button.js))
+      ))
     
     #Make traffic maps
     valstr <- values(map.layer.tr)
@@ -404,12 +423,261 @@ server <- function(input, output, session){
       addLegend(pal = leg.pal.tr, values = valstr, opacity = 1,
                 title = toString(f.titles("Traffic")), position = "topright",
                 group = "Measurement value",
-                labFormat = labelFormat(transform = function(x) sort(x, decreasing = TRUE)))
+                labFormat = myLabelFormat()) %>%      addEasyButton(easyButton(
+        icon = "fa-crosshairs", title = "Recenter",
+        onClick = JS(paste(button.js))
+      ))
     
-    #make list of all maps
-    maps <- list(main = content_map, pm25=pm25, pm1=pm1, pm10=pm10,temp=temp,humid=humid,crime=crime, pov=pov)
-    maps
+    ###Make density maps
+    valspm25.d <- values(map.layer.pm2.5.dlog)
+    pm25.d <- leaflet(content.df) %>%
+      setView(lng = lon.center, lat = lat.center, zoom = zoom.no) %>%
+      addProviderTiles(providers$Esri.WorldTopoMap) %>%
+      addRasterImage(map.layer.pm2.5.dlog, colors = pal.pm2.5.d, opacity = 0.8, method = "ngb") %>%
+      addLegend(pal = leg.pal.pm2.5.d, values = valspm25.d, opacity = 1,
+                title = toString(f.titles.d("PM2.5")), position = "topright",
+                labFormat = myLabelFormat()) %>%
+      addEasyButton(easyButton(
+        icon = "fa-crosshairs", title = "Recenter",
+        onClick = JS(paste(button.js))
+      ))
+    
+    #Make PM1 maps
+    valspm1.d <- values(map.layer.pm1.dlog)
+    pm1.d <- leaflet(content.df) %>%
+      setView(lng = lon.center, lat = lat.center, zoom = zoom.no) %>%
+      addProviderTiles(providers$Esri.WorldTopoMap) %>%
+      addRasterImage(map.layer.pm1.dlog, colors = pal.pm1.d, opacity = 0.8, method = "ngb") %>%
+      addLegend(pal = leg.pal.pm1.d, values = valspm1.d, opacity = 1,
+                title = toString(f.titles.d("PM1")), position = "topright",
+                labFormat = myLabelFormat()) %>%
+      addEasyButton(easyButton(
+        icon = "fa-crosshairs", title = "Recenter",
+        onClick = JS(paste(button.js))
+      ))
+    
+    #Make PM10 maps
+    valspm10.d <- values(map.layer.pm10.dlog)
+    pm10.d <- leaflet(content.df) %>%
+      setView(lng = lon.center, lat = lat.center, zoom = zoom.no) %>%
+      addProviderTiles(providers$Esri.WorldTopoMap) %>%
+      addRasterImage(map.layer.pm10.dlog, colors = pal.pm10.d, opacity = 0.8, method = "ngb") %>%
+      addLegend(pal = leg.pal.pm10.d, values = valspm10.d, opacity = 1,
+                title = toString(f.titles.d("PM10")), position = "topright",
+                labFormat = myLabelFormat()) %>%
+      addEasyButton(easyButton(
+        icon = "fa-crosshairs", title = "Recenter",
+        onClick = JS(paste(button.js))
+      ))
+    
+    #Make temperature maps
+    valst.d <- values(map.layer.t.dlog)
+    temp.d <- leaflet(content.df) %>%
+      setView(lng = lon.center, lat = lat.center, zoom = zoom.no) %>%
+      addProviderTiles(providers$Esri.WorldTopoMap) %>%
+      addRasterImage(map.layer.t.dlog, colors = pal.t.d, opacity = 0.8, method = "ngb") %>%
+      addLegend(pal = leg.pal.t.d, values = valst.d, opacity = 1,
+                title = toString(f.titles.d("Temperature")), position = "topright",
+                labFormat = myLabelFormat()) %>%
+      addEasyButton(easyButton(
+        icon = "fa-crosshairs", title = "Recenter",
+        onClick = JS(paste(button.js))
+      ))
+    
+    #Make humidity maps
+    valsh.d <- values(map.layer.h.dlog)
+    humid.d <- leaflet(content.df) %>%
+      setView(lng = lon.center, lat = lat.center, zoom = zoom.no) %>%
+      addProviderTiles(providers$Esri.WorldTopoMap) %>%
+      addRasterImage(map.layer.h.dlog, colors = pal.h.d, opacity = 0.8, method = "ngb") %>%
+      addLegend(pal = leg.pal.h.d, values = valsh.d, opacity = 1,
+                title = toString(f.titles.d("Humidity")), position = "topright",
+                labFormat = myLabelFormat()) %>%
+      addEasyButton(easyButton(
+        icon = "fa-crosshairs", title = "Recenter",
+        onClick = JS(paste(button.js))
+      ))
+    
+    #####Make EPA maps
+    epa.dates <- input$dates[1]:input$dates[2]
+    
+    #PM2.5
+    epa.pm25.ras <- getEPAraster('PM2.5', epa.dates) #Also returns epa.df for downloading data
+    epa.pm25.ras[epa.pm25.ras == -1] <- NA #Non-values are given as -1 by raster function
+    epa.pm25.ras <- crop(epa.pm25.ras, extent(county.borders)) %>% mask(county.borders)
+    epa.vals.pm25 <- values(epa.pm25.ras)
+    
+    epa.pal.pm25 <- colorNumeric(palette = brewer.pal(7, "YlOrRd"),
+                            domain = epa.vals.pm25,
+                            na.color = "transparent"
+    )
+    epa.leg.pal.pm25 <- colorNumeric(palette = brewer.pal(7, "YlOrRd"),
+                                domain = epa.vals.pm25,
+                                na.color = "transparent",
+                                reverse = TRUE
+    )
+    
+    epa.pm25 <- leaflet() %>%
+      setView(lng = lon.center, lat = lat.center, zoom = zoom.no) %>%
+      addProviderTiles(providers$Esri.WorldTopoMap) %>%
+      addRasterImage(epa.pm25.ras, colors = epa.pal.pm25, opacity = 0.8, method = "ngb") %>%
+      addLegend(pal = epa.leg.pal.pm25, values = epa.vals.pm25, opacity = 1,
+                title = toString(f.titles.epa('PM2.5')), position = "topright",
+                labFormat = myLabelFormat()) %>%
+      addEasyButton(easyButton(
+        icon = "fa-crosshairs", title = "Recenter",
+        onClick = JS(paste(button.js))
+      ))
+    
+    ##PM10
+    epa.pm10.ras <- getEPAraster('PM10', epa.dates) #Also returns epa.df for downloading data
+    epa.pm10.ras[epa.pm10.ras == -1] <- NA #Non-values are given as -1 by raster function
+    epa.pm10.ras <- crop(epa.pm10.ras, extent(county.borders)) %>% mask(county.borders)
+    epa.vals.pm10 <- values(epa.pm10.ras)
+    
+    epa.pal.pm10 <- colorNumeric(palette = brewer.pal(7, "YlOrRd"),
+                                 domain = epa.vals.pm10,
+                                 na.color = "transparent"
+    )
+    epa.leg.pal.pm10 <- colorNumeric(palette = brewer.pal(7, "YlOrRd"),
+                                     domain = epa.vals.pm10,
+                                     na.color = "transparent",
+                                     reverse = TRUE
+    )
+    
+    epa.pm10 <- leaflet() %>%
+      setView(lng = lon.center, lat = lat.center, zoom = zoom.no) %>%
+      addProviderTiles(providers$Esri.WorldTopoMap) %>%
+      addRasterImage(epa.pm10.ras, colors = epa.pal.pm10, opacity = 0.8, method = "ngb") %>%
+      addLegend(pal = epa.leg.pal.pm10, values = epa.vals.pm10, opacity = 1,
+                title = toString(f.titles.epa('PM10')), position = "topright",
+                labFormat = myLabelFormat()) %>%
+      addEasyButton(easyButton(
+        icon = "fa-crosshairs", title = "Recenter",
+        onClick = JS(paste(button.js))
+      ))
+    
+    ##SO2
+    epa.so2.ras <- getEPAraster('SO2', epa.dates) #Also returns epa.df for downloading data
+    epa.so2.ras[epa.so2.ras == -1] <- NA #Non-values are given as -1 by raster function
+    epa.so2.ras <- crop(epa.so2.ras, extent(county.borders)) %>% mask(county.borders)
+    epa.vals.so2 <- values(epa.so2.ras)
+    
+    epa.pal.so2 <- colorNumeric(palette = brewer.pal(7, "YlOrRd"),
+                                 domain = epa.vals.so2,
+                                 na.color = "transparent"
+    )
+    epa.leg.pal.so2 <- colorNumeric(palette = brewer.pal(7, "YlOrRd"),
+                                     domain = epa.vals.so2,
+                                     na.color = "transparent",
+                                     reverse = TRUE
+    )
+    
+    epa.so2 <- leaflet() %>%
+      setView(lng = lon.center, lat = lat.center, zoom = zoom.no) %>%
+      addProviderTiles(providers$Esri.WorldTopoMap) %>%
+      addRasterImage(epa.so2.ras, colors = epa.pal.so2, opacity = 0.8, method = "ngb") %>%
+      addLegend(pal = epa.leg.pal.so2, values = epa.vals.so2, opacity = 1,
+                title = toString(f.titles.epa('SO2')), position = "topright",
+                labFormat = myLabelFormat()) %>%
+      addEasyButton(easyButton(
+        icon = "fa-crosshairs", title = "Recenter",
+        onClick = JS(paste(button.js))
+      ))
+    
+    ##O3
+    epa.o3.ras <- getEPAraster('O3', epa.dates) #Also returns epa.df for downloading data
+    epa.o3.ras[epa.o3.ras == -1] <- NA #Non-values are given as -1 by raster function
+    epa.o3.ras <- crop(epa.o3.ras, extent(county.borders)) %>% mask(county.borders)
+    epa.vals.o3 <- values(epa.o3.ras)
+    
+    epa.pal.o3 <- colorNumeric(palette = brewer.pal(7, "YlOrRd"),
+                                 domain = epa.vals.o3,
+                                 na.color = "transparent"
+    )
+    epa.leg.pal.o3 <- colorNumeric(palette = brewer.pal(7, "YlOrRd"),
+                                     domain = epa.vals.o3,
+                                     na.color = "transparent",
+                                     reverse = TRUE
+    )
+    
+    epa.o3 <- leaflet() %>%
+      setView(lng = lon.center, lat = lat.center, zoom = zoom.no) %>%
+      addProviderTiles(providers$Esri.WorldTopoMap) %>%
+      addRasterImage(epa.o3.ras, colors = epa.pal.o3, opacity = 0.8, method = "ngb") %>%
+      addLegend(pal = epa.leg.pal.o3, values = epa.vals.o3, opacity = 1,
+                title = toString(f.titles.epa('O3')), position = "topright",
+                labFormat = myLabelFormat()) %>%
+      addEasyButton(easyButton(
+        icon = "fa-crosshairs", title = "Recenter",
+        onClick = JS(paste(button.js))
+      ))
+    
+    ##NO2
+    epa.no2.ras <- getEPAraster('NO2', epa.dates) #Also returns epa.df for downloading data
+    epa.no2.ras[epa.no2.ras == -1] <- NA #Non-values are given as -1 by raster function
+    epa.no2.ras <- crop(epa.no2.ras, extent(county.borders)) %>% mask(county.borders)
+    epa.vals.no2 <- values(epa.no2.ras)
+    
+    epa.pal.no2 <- colorNumeric(palette = brewer.pal(7, "YlOrRd"),
+                                domain = epa.vals.no2,
+                                na.color = "transparent"
+    )
+    epa.leg.pal.no2 <- colorNumeric(palette = brewer.pal(7, "YlOrRd"),
+                                    domain = epa.vals.no2,
+                                    na.color = "transparent",
+                                    reverse = TRUE
+    )
+    
+    epa.no2 <- leaflet() %>%
+      setView(lng = lon.center, lat = lat.center, zoom = zoom.no) %>%
+      addProviderTiles(providers$Esri.WorldTopoMap) %>%
+      addRasterImage(epa.no2.ras, colors = epa.pal.no2, opacity = 0.8, method = "ngb") %>%
+      addLegend(pal = epa.leg.pal.no2, values = epa.vals.no2, opacity = 1,
+                title = toString(f.titles.epa('NO2')), position = "topright",
+                labFormat = myLabelFormat()) %>%
+      addEasyButton(easyButton(
+        icon = "fa-crosshairs", title = "Recenter",
+        onClick = JS(paste(button.js))
+      ))
+    
+    ##CO
+    epa.co.ras <- getEPAraster('CO', epa.dates) #Also returns epa.df for downloading data
+    epa.co.ras[epa.co.ras == -1] <- NA #Non-values are given as -1 by raster function
+    epa.co.ras <- crop(epa.co.ras, extent(county.borders)) %>% mask(county.borders)
+    epa.vals.co <- values(epa.co.ras)
+    
+    epa.pal.co <- colorNumeric(palette = brewer.pal(7, "YlOrRd"),
+                                domain = epa.vals.co,
+                                na.color = "transparent"
+    )
+    epa.leg.pal.co <- colorNumeric(palette = brewer.pal(7, "YlOrRd"),
+                                    domain = epa.vals.co,
+                                    na.color = "transparent",
+                                    reverse = TRUE
+    )
+    
+    epa.co <- leaflet() %>%
+      setView(lng = lon.center, lat = lat.center, zoom = zoom.no) %>%
+      addProviderTiles(providers$Esri.WorldTopoMap) %>%
+      addRasterImage(epa.co.ras, colors = epa.pal.co, opacity = 0.8, method = "ngb") %>%
+      addLegend(pal = epa.leg.pal.co, values = epa.vals.co, opacity = 1,
+                title = toString(f.titles.epa('CO')), position = "topright",
+                labFormat = myLabelFormat()) %>%
+      addEasyButton(easyButton(
+        icon = "fa-crosshairs", title = "Recenter",
+        onClick = JS(paste(button.js))
+      ))
+    
 
+    #make list of all maps
+    maps <- list(main = content_map, pm25=pm25, pm1=pm1, pm10=pm10,temp=temp,
+                 humid=humid,crime=crime, pov=pov, tr=tr, 
+                 pm25.d=pm25.d, pm1.d=pm1.d, pm10.d=pm10.d, temp.d=temp.d, humid.d=humid.d, 
+                 epa.pm25 = epa.pm25,epa.pm10 = epa.pm10, epa.so2 = epa.so2, 
+                 epa.no2 = epa.no2,epa.o3 = epa.o3, epa.co = epa.co)
+    maps
+    
   }) #End eventReactive
   
   #Delays plotting until "Go" button is clicked
@@ -431,21 +699,25 @@ server <- function(input, output, session){
     output$all.maps <- renderUI({
       withProgress(message = "Loading map...", {
         maps <- map.plot()
-        #main UI map
-        all_maps$dat <- sync(maps$pm25, maps$pm1,maps$pm10,maps$temp,maps$humid, maps$crime, maps$pov)})
+        all_maps$dat <- sync(maps$pm25, maps$temp, maps$humid)})
     })
   })
- 
-  #Download individual maps side-by-side in a grid
-  output$all_maps_download <- downloadHandler(
-    filename = "all_maps.png",
-    content = function(file) {
-      mapshot(all_maps$dat, file = file)
-    }
-  )
-##>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>###   
   
-  ## Reactive : Type of measurement selected -------------
+  ###########Here, render main EPA map (actually, no, throw this down below. Initial map should depend on go, and updated EPA map on input EPA go)
+  
+  #Make custom map grid
+  observeEvent(input$grid.update,{
+    maps.list <- paste('maps', input$grid.vars, sep = '$') %>%
+      as.list()
+    output$all.maps <- renderUI({
+      withProgress(message = "Loading map...", {
+        maps <- map.plot()
+        all_maps$dat <- sync(
+          lapply(maps.list, function(x) eval(parse(text = x)))
+        )})
+    })
+  })
+  
   measure <- reactive({input$int.map_groups[[2]]})
   
   observeEvent(input$int.map_groups, {
@@ -600,10 +872,9 @@ server <- function(input, output, session){
     
   }) #End observeEvent for switching between variables in map
   
-  #EPA
   epa.plot <- eventReactive(input$EPA_go, {
     
-    epa.dates <- input$EPA_dates[1]:input$EPA_dates[2]
+    epa.dates <- input$dates[1]:input$dates[2]
     
     col.name <- names(EPA_data)[grep(input$EPA_var, names(EPA_data))]
 
@@ -735,7 +1006,7 @@ server <- function(input, output, session){
   ###Data downloader
   output$download <- downloadHandler(
     filename = function() {
-      paste0(strftime(Sys.time(), format = '%Y%m%d%H%M%S'), ".csv")
+      paste0(strftime(Sys.time(), format = '%Y%m%d%H%M%S'), "-Data.csv")
     },
     content = function(file) {
       withProgress(message = 'Preparing download...', 
@@ -744,11 +1015,23 @@ server <- function(input, output, session){
     }
   )
   
+  output$download.ras <- downloadHandler(
+    filename = function() {
+      paste0(strftime(Sys.time(), format = '%Y%m%d%H%M%S'), "-RasterData.csv")
+    },
+    content = function(file) {
+      withProgress(message = 'Preparing download...', 
+                   write.csv(download.ras.df, file, row.names = FALSE)
+      )
+    }
+  )
+  
+  
   output$EPA_download <- downloadHandler(
     filename = function() {
       startdate <- strftime(min(epa.df$Date), format = '%Y%m%d')
       enddate <- strftime(max(epa.df$Date), format = '%Y%m%d')
-      paste0(epa.df.name, "_", startdate, "-", enddate, ".csv")
+      paste0(epa.df.name, "_", startdate, "-", enddate, "-EPA.csv")
     },
     content = function(file) {
       withProgress(message = 'Preparing download...', 

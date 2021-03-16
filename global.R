@@ -55,7 +55,7 @@ mins <- as_datetime(hm('0:00')): as_datetime(hm('23:59')) %>%
 #Use UTC for online and New York for local
 
 sensor.measures <- c("Temperature", "Humidity", "PM1", "PM2.5", "PM10")
-other.measures <- c("Crime", "Poverty", "Traffic")
+other.measures <- c("Crime", "Area Deprivation Index", "Traffic")
 all.measures <- c(sensor.measures, other.measures)
 
 #Subscripted version of measurements
@@ -129,7 +129,7 @@ f.top <- function(x){
   }
 }
 
-pov.raster <- raster("databases/poverty.grd")
+pov.shp <- shapefile("databases/ADI_data.shp")
 
 our.sensors <- fread("databases/LIMEA_AIRBEAM_SUMMARY.csv", 
                      header = TRUE, stringsAsFactors = FALSE)$AirBeamID[1:15]
