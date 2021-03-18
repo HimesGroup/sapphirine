@@ -1,1 +1,0 @@
-local.data <- read_feather('local_data.feather')

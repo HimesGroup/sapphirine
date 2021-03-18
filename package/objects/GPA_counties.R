@@ -1,1 +1,0 @@
-GPA_counties <- shapefile('gpa_counties/gpa_counties.shp')
