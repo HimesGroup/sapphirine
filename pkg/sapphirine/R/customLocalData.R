@@ -45,9 +45,9 @@ customLocalData <- function(shape = sapphirine::GPA_counties, startDate, endDate
 
   mins <- as_datetime(hm('0:00')):as_datetime(hm('23:59')) %>%
     as_datetime() %>%
-    force_tz(tz = 'UTC') %>%
     strftime(format = '%H:%M') %>%
-    unique()
+    unique() %>%
+    sort()
 
   custom.data <- sapphirine::local.data %>%
     dplyr::filter(
