@@ -46,13 +46,16 @@ customEPAData <- function(shape = sapphirine::GPA_counties, startDate, endDate,
                   Monitor_Start_Date, Last_Sample_Date,
                   starts_with(variables))
 
-  if(startDate < min(custom.data$Date)){
-    warning(paste('Data are available beginning',
-                  min(custom.data$Date), 'given user-defined parameters.'))
-  }
-  if(endDate > max(custom.data$Date)){
-    warning(paste('Data are available ending',
-                  max(custom.data$Date), 'given user-defined parameters.'))
+  if(nrow(custom.data) > 0){
+
+    if(startDate < min(custom.data$Date)){
+      warning(paste('Data are available beginning',
+                    min(custom.data$Date), 'given user-defined parameters.'))
+    }
+    if(endDate > max(custom.data$Date)){
+      warning(paste('Data are available ending',
+                    max(custom.data$Date), 'given user-defined parameters.'))
+    }
   }
 
   return(custom.data)

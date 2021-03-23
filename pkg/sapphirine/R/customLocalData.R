@@ -64,15 +64,18 @@ customLocalData <- function(shape = sapphirine::GPA_counties, startDate, endDate
 
   custom.data <- custom.data[apply(custom.data[,variables], 1, function(x) sum(is.na(x))) != length(variables),]
 
-  if(startDate < lubridate::date(min(custom.data$Timestamp))){
-    warning(paste('Data are available beginning',
-                   lubridate::date(min(custom.data$Timestamp)), '
-                  given user-defined parameters.'))
-  }
-  if(endDate > lubridate::date(max(custom.data$Timestamp))){
-    warning(paste('Data are available ending',
-                  lubridate::date(max(custom.data$Timestamp)), '
-                  given user-defined parameters.'))
+  if(nrow(custom.data) > 0){
+
+    if(startDate < lubridate::date(min(custom.data$Timestamp))){
+      warning(paste('Data are available beginning',
+                     lubridate::date(min(custom.data$Timestamp)), '
+                    given user-defined parameters.'))
+    }
+    if(endDate > lubridate::date(max(custom.data$Timestamp))){
+      warning(paste('Data are available ending',
+                    lubridate::date(max(custom.data$Timestamp)), '
+                    given user-defined parameters.'))
+    }
   }
 
   return(custom.data)
