@@ -1,18 +1,24 @@
 Package: sapphirine
-Title: What the Package Does (One Line, Title Case)
-Version: 0.0.0.9000
-Authors@R: 
-    person(given = "First",
-           family = "Last",
-           role = c("aut", "cre"),
-           email = "first.last@example.com",
-           comment = c(ORCID = "YOUR-ORCID-ID"))
-Description: What the package does (one paragraph).
-License: `use_mit_license()`, `use_gpl3_license()` or friends to
-    pick a license
+Title: SAPPHIRINE: Sensor-based Analysis of Pollution in the Philadelphia Region with Information on Neighborhoods and the Environment
+Version: 1.0
+Authors: Colin Christie <chrcolin@sas.upenn.edu>, Sherrie Xie <xiex@vet.upenn.edu>, Avantika R. Diwadkar <Avantika.Diwadkar@pennmedicine.upenn.edu>, Rebecca Greenblatt <Rebecca.Greenblatt@pennmedicine.upenn.edu>, Alexandra Rizaldi <rizaldi@sas.upenn.edu>, Blanca E. Himes <bhimes@pennmedicine.upenn.edu> 
+Description: Interactive visualization and customizable data retrieval for pollution and other geospatial data, integrated from multiple sources, to facilitate hypothesis generation for neighborhood-level health studies in the Greater Philadelphia Area.
+License: https://github.com/HimesGroup/sapphirine/blob/master/LICENSE
 Encoding: UTF-8
 LazyData: true
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.1.1
 Depends: 
     R (>= 2.10)
+Imports:
+    DescTools,
+    RColorBrewer,
+    dplyr,
+    gstat,
+    leaflet,
+    lubridate,
+    magrittr,
+    prevR,
+    raster,
+    sp
+URL: https://github.com/HimesGroup/sapphirine/tree/master/pkg/sapphirine

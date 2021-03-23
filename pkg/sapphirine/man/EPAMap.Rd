@@ -2,13 +2,36 @@
 % Please edit documentation in R/EPAMap.R
 \name{EPAMap}
 \alias{EPAMap}
-\title{Function}
+\title{EPA Raster Leaflet Map}
 \usage{
 EPAMap(rasBrick, popups = TRUE, bounds = NULL, colors = "YlOrRd")
 }
+\arguments{
+\item{rasBrick}{An output of \code{sapphirine::intEPARaster}}
+
+\item{popups}{Whether to include clickable popup displays 1) with summary data for every raster bin in the map display and 2) with descriptions for every monitor location.}
+
+\item{bounds}{An optional shapefile input to project onto the map display}
+
+\item{colors}{Color palette for raster layers}
+}
 \description{
-Function
+Renders a \code{leaflet} map display for brick of interpolated EPA data rasters.
 }
 \examples{
-EPAMap()
+
+#Select counties for shape
+counties <- c('Bucks', 'Chester', 'Delaware', 'Montgomery', 'Philadelphia')
+cty.shape <- selectGPACounties(counties)
+
+#Customize subset of EPA.data
+dat <- customEPAData(cty.shape, '2017-06-01', '2019-05-31')
+
+#Make interpolated raster brick
+ras <- intEPARaster(dat, cty.shape)
+
+#Select Philadelphia shapefile to display Philadelphia boundaries in map
+phl.bound <- selectGPACounties('Philadelphia')
+
+EPAMap(ras, bounds = phl.bound)
 }

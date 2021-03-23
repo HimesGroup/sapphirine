@@ -1,9 +1,27 @@
-#' Function
+#' Custom EPA Data
+#'
+#' Subset the sapphirine EPA data frame according to custom parameters
+#'
+#' @param shape A SpatialPolygons or extent object, for example, a subset of `sapphirine::GPA_counties` created using `sapphirine::selectGPACounties`, to define the geographic scope of data to include
+#' @param startDate A `Date` object or `character` string of format yyyy-mm-dd defining the lower bound of the time frame over which to include data
+#' @param endDate " " for the upper bound
+#' @param variables A `character` vector of pollutant variables to include.
+#' @import dplyr
+#' @import magrittr
+#' @import prevR
+#' @import sp
+#' @import lubridate
 #' @export
 #' @examples
-#' customEPAData()
+#'
+#' #Select counties for shape
+#' counties <- c('Bucks', 'Chester', 'Delaware', 'Montgomery', 'Philadelphia')
+#' cty.shape <- selectGPACounties(counties)
+#'
+#' #Retrieve local data in selected counties from 1 June 2017 - 31 May 2019
+#' customLocalData(cty.shape, '2017-06-01', '2019-05-31')
 
-customEPAData <- function(startDate, endDate, shape = sapphirine::GPA_counties,
+customEPAData <- function(shape = sapphirine::GPA_counties, startDate, endDate,
                           variables = c(
                             'PM2.5', 'PM10', 'SO2', 'NO2', 'O3', 'CO')){
 

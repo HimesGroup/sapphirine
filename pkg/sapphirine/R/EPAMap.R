@@ -1,7 +1,32 @@
-#' Function
+#' EPA Raster Leaflet Map
+#'
+#' Renders a `leaflet` map display for brick of interpolated EPA data rasters.
+#'
+#' @param rasBrick An output of `sapphirine::intEPARaster`
+#' @param popups Whether to include clickable popup displays 1) with summary data for every raster bin in the map display and 2) with descriptions for every monitor location.
+#' @param bounds An optional shapefile input to project onto the map display
+#' @param colors Color palette for raster layers
+#' @import leaflet
+#' @import RColorBrewer
+#' @import sp
+#' @import lubridate
 #' @export
 #' @examples
-#' EPAMap()
+#'
+#' #Select counties for shape
+#' counties <- c('Bucks', 'Chester', 'Delaware', 'Montgomery', 'Philadelphia')
+#' cty.shape <- selectGPACounties(counties)
+#'
+#' #Customize subset of EPA.data
+#' dat <- customEPAData(cty.shape, '2017-06-01', '2019-05-31')
+#'
+#' #Make interpolated raster brick
+#' ras <- intEPARaster(dat, cty.shape)
+#'
+#' #Select Philadelphia shapefile to display Philadelphia boundaries in map
+#' phl.bound <- selectGPACounties('Philadelphia')
+#'
+#' EPAMap(ras, bounds = phl.bound)
 
 EPAMap <- function(rasBrick, popups = TRUE, bounds = NULL, colors = 'YlOrRd'){
 

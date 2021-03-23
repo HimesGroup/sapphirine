@@ -1,7 +1,10 @@
-#' Function
+#' Top value function
+#'
+#' Helper function for `localMap` and `EPAMap`. Gives optimal top value for legends in leaflet map display
+#'
+#' @param x The data values to be represented by the legend
+#' @import DescTools
 #' @export
-#' @examples
-#' f.top()
 
 f.top <- function(x){
   no.string <- toString(as.integer(x))

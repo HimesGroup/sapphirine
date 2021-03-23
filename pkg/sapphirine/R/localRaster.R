@@ -1,7 +1,30 @@
-#' Function
+#' Raster from Local Data
+#'
+#' Create a brick of raster layers corresponding to `sapphirine::local.data` variables.
+#'
+#' @param data A subset of `sapphirine::local.data`. See `sapphirine::customLocalData` for easy custom subsetting.
+#' @param shape A SpatialPolygons or extent object, for example, a subset of `sapphirine::GPA_counties` created using `sapphirine::selectGPACounties`, to define the boundaries of the raster layers.
+#' @param nrows Number of rows to include in the raster display
+#' @param ncols Number of columns " "
+#' @param variables A vector of `sapphirine::local.data` variables to include.
+#' @param includeCount Whether to include density plot raster layers for sensor-based measurement variables (Temperature, Humidity, PM1, PM2.5, PM10) included in `variables`
+#' @return A RasterBrick object consisting of raster layers for all variables included.
+#' @import magrittr
+#' @import raster
+#' @import dplyr
+#' @import sp
+#' @import lubridate
 #' @export
 #' @examples
-#' localRaster()
+#'
+#' #Select counties for shape
+#' counties <- c('Bucks', 'Chester', 'Delaware', 'Montgomery', 'Philadelphia')
+#' cty.shape <- selectGPACounties(counties)
+#'
+#' #Customize subset of local.data
+#' dat <- customLocalData(cty.shape, '2017-06-01', '2019-05-31')
+#'
+#' localRaster(dat, cty.shape, 100, 100)
 
 localRaster <- function(data, shape, nrows, ncols,
                         variables = c('Temperature', 'Humidity',
@@ -22,7 +45,7 @@ localRaster <- function(data, shape, nrows, ncols,
               xmx = xmax(shape), ymn = ymin(shape), ymx = ymax(shape))
   crs(r) <- CRS("+proj=longlat +datum=WGS84 +ellps=WGS84 +towgs84=0,0,0")
 
-  df.variables <- variables[!variables %in% c('Poverty', 'Traffic')]
+  df.variables <- names(data)[which(names(data) %in% variables)]
 
   for(i in 1:length(df.variables)){
     measure.data <- dplyr::filter(data, !is.na(eval(parse(text = df.variables[i]))))

@@ -1,7 +1,17 @@
-#' Function
+#' Select Greater Philadelphia counties
+#'
+#' Allows for easy selection of Greater Philadelphia Area counties to generate a custom shapefile.
+#'
+#' @param counties A vector containing names of Greater Philadelphia counties to be included. Proper names can be accessed from `sapphirine::GPACountyNames`
+#' @return A SpatialPolygonsDataFrame shapefile of the input counties.
 #' @export
 #' @examples
-#' selectGPACounties()
+#' #Print a list of county names for reference
+#' GPACountyNames
+#'
+#' counties <- c('Bucks', 'Chester', 'Delaware', 'Montgomery', 'Philadelphia')
+#'
+#' selectGPACounties(counties)
 
 selectGPACounties <- function(counties){
 

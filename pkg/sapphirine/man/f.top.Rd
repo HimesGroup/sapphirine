@@ -2,13 +2,13 @@
 % Please edit documentation in R/f.top.R
 \name{f.top}
 \alias{f.top}
-\title{Function}
+\title{Top value function}
 \usage{
 f.top(x)
 }
-\description{
-Function
+\arguments{
+\item{x}{The data values to be represented by the legend}
 }
-\examples{
-f.top()
+\description{
+Helper function for \code{localMap} and \code{EPAMap}. Gives optimal top value for legends in leaflet map display
 }

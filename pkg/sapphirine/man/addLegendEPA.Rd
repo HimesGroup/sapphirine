@@ -2,13 +2,10 @@
 % Please edit documentation in R/addLegendEPA.R
 \name{addLegendEPA}
 \alias{addLegendEPA}
-\title{Function}
+\title{Add legend to EPA leaflet map}
 \usage{
 addLegendEPA(map, colors, labels, sizes, opacity = 0.8)
 }
 \description{
-Function
-}
-\examples{
-addLegendEPA()
+Helper function in \code{sapphirine::EPAMap}. Adds legend for EPA monitoring stations to EPA leaflet map
 }

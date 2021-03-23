@@ -1,7 +1,9 @@
-#' Function
+#' Add legend to EPA leaflet map
+#'
+#' Helper function in `sapphirine::EPAMap`. Adds legend for EPA monitoring stations to EPA leaflet map
+#'
+#' @import leaflet
 #' @export
-#' @examples
-#' addLegendEPA()
 
 addLegendEPA <- function(map, colors, labels, sizes, opacity = 0.8){
   colorAdditions <- paste0(colors, "; border-radius: 50%; width:", sizes,

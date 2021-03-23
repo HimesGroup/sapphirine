@@ -2,7 +2,7 @@
 % Please edit documentation in R/customLocalData.R
 \name{customLocalData}
 \alias{customLocalData}
-\title{Function}
+\title{Custom Local Data}
 \usage{
 customLocalData(
   shape = sapphirine::GPA_counties,
@@ -10,12 +10,34 @@ customLocalData(
   endDate,
   startTime = "00:00",
   endTime = "23:59",
-  sensors = sapphirine::sensor.list
+  sensors = sapphirine::sensor.list,
+  variables = c("Temperature", "Humidity", "PM1", "PM2.5", "PM10", "Crime")
 )
 }
+\arguments{
+\item{shape}{A SpatialPolygons or extent object, for example, a subset of \code{sapphirine::GPA_counties} created using \code{sapphirine::selectGPACounties}, to define the geographic scope of data to include}
+
+\item{startDate}{A \code{Date} object or \code{character} string of format yyyy-mm-dd defining the lower bound of the time frame over which to include data}
+
+\item{endDate}{" " for the upper bound}
+
+\item{startTime}{\code{character} string of format HH:MM defining the lower bound of the time of day in U.S. Eastern (New York) time over which to include data}
+
+\item{endTime}{" " for the upper bound}
+
+\item{sensors}{A\code{character} vector listing the names of all sensors for which to include data. See \code{sapphirine::sensor.list} for a list of sensor names}
+
+\item{variables}{A \code{character} vector of geospatial variables to include}
+}
 \description{
-Function
+Subset the sapphirine local data frame according to custom parameters
 }
 \examples{
-customLocalData()
+
+#Select counties for shape
+counties <- c('Bucks', 'Chester', 'Delaware', 'Montgomery', 'Philadelphia')
+cty.shape <- selectGPACounties(counties)
+
+#Retrieve local data in selected counties from 1 June 2017 - 31 May 2019 over 16:00-18:00 U.S. Eastern (New York) time
+customLocalData(cty.shape, '2017-06-01', '2019-05-31', '16:00', '18:00')
 }

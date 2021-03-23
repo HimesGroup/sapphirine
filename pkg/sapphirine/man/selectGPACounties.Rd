@@ -2,13 +2,24 @@
 % Please edit documentation in R/selectGPACounties.R
 \name{selectGPACounties}
 \alias{selectGPACounties}
-\title{Function}
+\title{Select Greater Philadelphia counties}
 \usage{
 selectGPACounties(counties)
 }
+\arguments{
+\item{counties}{A vector containing names of Greater Philadelphia counties to be included. Proper names can be accessed from \code{sapphirine::GPACountyNames}}
+}
+\value{
+A SpatialPolygonsDataFrame shapefile of the input counties.
+}
 \description{
-Function
+Allows for easy selection of Greater Philadelphia Area counties to generate a custom shapefile.
 }
 \examples{
-selectGPACounties()
+#Print a list of county names for reference
+GPACountyNames
+
+counties <- c('Bucks', 'Chester', 'Delaware', 'Montgomery', 'Philadelphia')
+
+selectGPACounties(counties)
 }

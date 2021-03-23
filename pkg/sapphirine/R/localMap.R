@@ -1,7 +1,33 @@
-#' Function
+#' Local Raster Leaflet Map
+#'
+#' Renders a `leaflet` map display for brick of local data rasters.
+#'
+#' @param rasBrick An output of `sapphirine::localRaster`
+#' @param popups Whether to include clickable popup displays with summary data for every raster bin in the map display.
+#' @param bounds An optional shapefile input to project onto the map display.
+#' @param colors Color palette for raster layers
+#' @param d.colors Color palette for measurement density layers. Relevant only if `sapphirine::localRaster` output contains density plots.
+#' @import leaflet
+#' @import RColorBrewer
+#' @import sp
+#' @import lubridate
 #' @export
 #' @examples
-#' localMap()
+#'
+#' #Select counties for shape
+#' counties <- c('Bucks', 'Chester', 'Delaware', 'Montgomery', 'Philadelphia')
+#' cty.shape <- selectGPACounties(counties)
+#'
+#' #Customize subset of local.data
+#' dat <- customLocalData(cty.shape, '2017-06-01', '2019-05-31')
+#'
+#' #Make raster brick
+#' localRaster(dat, cty.shape, 100, 100)
+#'
+#' #Select Philadelphia shapefile to display Philadelphia boundaries in map
+#' phl.bound <- selectGPACounties('Philadelphia')
+#'
+#' localMap(ras, bounds = phl.bound)
 
 localMap <- function(rasBrick, popups = TRUE, bounds = NULL,
                      colors = 'YlOrRd', d.colors = 'Purples'){

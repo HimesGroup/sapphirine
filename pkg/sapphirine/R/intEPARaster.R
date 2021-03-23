@@ -1,7 +1,28 @@
-#' Function
+#' Interpolated Raster from EPA Data
+#'
+#' Create a brick of 1km x 1km raster layers rendered with inverse-distance-weighted interpolation of EPA data.
+#'
+#' @param data A subset of `sapphirine::EPA.data`. See `sapphirine::customLocalData` for easy custom subsetting.
+#' @param shape A SpatialPolygons or extent object, for example, a subset of `sapphirine::GPA_counties` created using `sapphirine::selectGPACounties`, to define the boundaries of the raster layers.
+#' @param power Power of inverse-distance-weighted interpolation (e.g., `power = 2` will call inverse-square-distance-weighted interpolation)
+#' @param variables A vector of `sapphirine::EPA.data` variables to include.
+#' @import raster
+#' @import magrittr
+#' @import gstat
+#' @import dplyr
+#' @import sp
+#' @import lubridate
 #' @export
 #' @examples
-#' intEPARaster()
+#'
+#' #Select counties for shape
+#' counties <- c('Bucks', 'Chester', 'Delaware', 'Montgomery', 'Philadelphia')
+#' cty.shape <- selectGPACounties(counties)
+#'
+#' #Customize subset of EPA.data
+#' dat <- customEPAData(cty.shape, '2017-06-01', '2019-05-31')
+#'
+#' intEPARaster(dat, cty.shape)
 
 intEPARaster <- function(data, shape, power = 1,
                          variables = c('PM2.5', 'PM10', 'SO2',

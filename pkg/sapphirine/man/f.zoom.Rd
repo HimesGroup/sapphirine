@@ -2,13 +2,15 @@
 % Please edit documentation in R/f.zoom.R
 \name{f.zoom}
 \alias{f.zoom}
-\title{Function}
+\title{Zoom function}
 \usage{
 f.zoom(x, y)
 }
-\description{
-Function
+\arguments{
+\item{x}{The range of x coordinates (longitudes) of the display}
+
+\item{y}{The range of y coordinates (latitudes)}
 }
-\examples{
-f.zoom()
+\description{
+Helper function for \code{localMap} and \code{EPAMap}. Gives optimal zoom for initial display in leaflet maps
 }

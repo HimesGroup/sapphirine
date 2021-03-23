@@ -2,18 +2,33 @@
 % Please edit documentation in R/customEPAData.R
 \name{customEPAData}
 \alias{customEPAData}
-\title{Function}
+\title{Custom EPA Data}
 \usage{
 customEPAData(
+  shape = sapphirine::GPA_counties,
   startDate,
   endDate,
-  shape = sapphirine::GPA_counties,
   variables = c("PM2.5", "PM10", "SO2", "NO2", "O3", "CO")
 )
 }
+\arguments{
+\item{shape}{A SpatialPolygons or extent object, for example, a subset of \code{sapphirine::GPA_counties} created using \code{sapphirine::selectGPACounties}, to define the geographic scope of data to include}
+
+\item{startDate}{A \code{Date} object or \code{character} string of format yyyy-mm-dd defining the lower bound of the time frame over which to include data}
+
+\item{endDate}{" " for the upper bound}
+
+\item{variables}{A \code{character} vector of pollutant variables to include.}
+}
 \description{
-Function
+Subset the sapphirine EPA data frame according to custom parameters
 }
 \examples{
-customEPAData()
+
+#Select counties for shape
+counties <- c('Bucks', 'Chester', 'Delaware', 'Montgomery', 'Philadelphia')
+cty.shape <- selectGPACounties(counties)
+
+#Retrieve local data in selected counties from 1 June 2017 - 31 May 2019
+customLocalData(cty.shape, '2017-06-01', '2019-05-31')
 }
