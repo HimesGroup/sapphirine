@@ -62,7 +62,7 @@ customLocalData <- function(shape = sapphirine::GPA_counties, startDate, endDate
     dplyr::filter(custom.data[which(!is.na(custom.data$Sensor.ID)),],
                   Sensor.ID %in% sensors)
 
-  custom.data[apply(custom.data[,variables], 1, function(x) sum(is.na(x))) != length(variables),]
+  custom.data <- custom.data[apply(custom.data[,variables], 1, function(x) sum(is.na(x))) != length(variables),]
 
   if(startDate < lubridate::date(min(custom.data$Timestamp))){
     warning(paste('Data are available beginning',
