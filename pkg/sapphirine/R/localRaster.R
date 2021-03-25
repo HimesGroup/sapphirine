@@ -111,12 +111,10 @@ localRaster <- function(data, shape, nrows, ncols,
   }
 
   if('Poverty' %in% variables){
-    assign("poverty.layer",
-           try(resample(sapphirine::poverty.raster, r, method = "bilinear"), silent = TRUE))
-    if(length(poverty.layer) == 1){
-      assign("poverty.layer", rasterize(data.frame(NA, NA), r, na.rm = TRUE))
-    }
-    ras.brick[[1 + nlayers(ras.brick)]] <- poverty.layer
+    assign('poverty.layer', rasterize(sapphirine::ADI_data, r, field = sapphirine::ADI_data$ADI_NAT, fun = mean, na.rm = TRUE),
+           envir = .GlobalEnv)
+    ras.brick[[1 + nlayers(ras.brick)]] <- poverty.layer %>%
+      crop(extent(shape)) %>% mask(shape)
     names(ras.brick)[[nlayers(ras.brick)]] <- 'Poverty'
   }
 
@@ -126,7 +124,9 @@ localRaster <- function(data, shape, nrows, ncols,
     if(length(traffic.layer) == 1){
       assign("traffic.layer", rasterize(data.frame(NA, NA), r, na.rm = TRUE))
     }
-    ras.brick[[1 + nlayers(ras.brick)]] <- traffic.layer
+    ras.brick[[1 + nlayers(ras.brick)]] <- traffic.layer %>%
+      crop(extent(shape)) %>%
+      mask(shape)
     names(ras.brick)[[nlayers(ras.brick)]] <- 'Traffic'
   }
 

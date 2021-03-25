@@ -2,7 +2,7 @@
 % Please edit documentation in R/myLabelFormat.R
 \name{myLabelFormat}
 \alias{myLabelFormat}
-\title{Function}
+\title{My Label Format}
 \usage{
 myLabelFormat(
   prefix = "",
@@ -14,9 +14,21 @@ myLabelFormat(
   t.val = Inf
 )
 }
-\description{
-Function
+\arguments{
+\item{prefix}{Prefix (character) to add to legend labels}
+
+\item{suffix}{Suffix (character) to add to legend labels}
+
+\item{between}{Character to add between limits of numerically ranged legend labels, dash by default}
+
+\item{digits}{Number of digits to which to round numeric legend labels}
+
+\item{big.mark}{Character to add every 3 digits in large numeric legend labels, comma by default}
+
+\item{transform}{Transformation to apply to numeric legend labels (e.g., log10), identity (none) by default}
+
+\item{t.val}{Maximum value at which to cut off a numeric legend (to be used if all values of a raster layer beyond said maximum are coerced to the maximum value to eliminate outliers); will be given a suffix of +}
 }
-\examples{
-myLabelFormat()
+\description{
+Helper function to flip the legend labels on a \code{leaflet} map to increase vertically rather than decrease. Also allows for other forms of customization
 }

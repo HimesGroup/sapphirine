@@ -1,7 +1,15 @@
-#' Function
+#' My Label Format
+#'
+#' Helper function to flip the legend labels on a `leaflet` map to increase vertically rather than decrease. Also allows for other forms of customization
+#'
+#' @param prefix Prefix (character) to add to legend labels
+#' @param suffix Suffix (character) to add to legend labels
+#' @param between Character to add between limits of numerically ranged legend labels, dash by default
+#' @param digits Number of digits to which to round numeric legend labels
+#' @param big.mark Character to add every 3 digits in large numeric legend labels, comma by default
+#' @param transform Transformation to apply to numeric legend labels (e.g., log10), identity (none) by default
+#' @param t.val Maximum value at which to cut off a numeric legend (to be used if all values of a raster layer beyond said maximum are coerced to the maximum value to eliminate outliers); will be given a suffix of +
 #' @export
-#' @examples
-#' myLabelFormat()
 
 myLabelFormat = function(prefix = "", suffix = "", between = " &ndash; ", digits = 3,
                          big.mark = ",", transform = identity, t.val = Inf) {

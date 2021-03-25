@@ -24,7 +24,7 @@ localMap(
 \item{d.colors}{Color palette for measurement density layers. Relevant only if \code{sapphirine::localRaster} output contains density plots.}
 }
 \description{
-Renders a \code{leaflet} map display for brick of local data rasters.
+Render a \code{leaflet} map display for brick of local data rasters.
 }
 \examples{
 

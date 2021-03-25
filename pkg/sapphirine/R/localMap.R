@@ -1,6 +1,6 @@
 #' Local Raster Leaflet Map
 #'
-#' Renders a `leaflet` map display for brick of local data rasters.
+#' Render a `leaflet` map display for brick of local data rasters.
 #'
 #' @param rasBrick An output of `sapphirine::localRaster`
 #' @param popups Whether to include clickable popup displays with summary data for every raster bin in the map display.

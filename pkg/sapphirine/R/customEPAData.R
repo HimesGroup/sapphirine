@@ -19,7 +19,7 @@
 #' cty.shape <- selectGPACounties(counties)
 #'
 #' #Retrieve local data in selected counties from 1 June 2017 - 31 May 2019
-#' customLocalData(cty.shape, '2017-06-01', '2019-05-31')
+#' customEPAData(cty.shape, '2017-06-01', '2019-05-31')
 
 customEPAData <- function(shape = sapphirine::GPA_counties, startDate, endDate,
                           variables = c(

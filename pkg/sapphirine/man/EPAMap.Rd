@@ -16,7 +16,7 @@ EPAMap(rasBrick, popups = TRUE, bounds = NULL, colors = "YlOrRd")
 \item{colors}{Color palette for raster layers}
 }
 \description{
-Renders a \code{leaflet} map display for brick of interpolated EPA data rasters.
+Render a \code{leaflet} map display for brick of interpolated EPA data rasters.
 }
 \examples{
 

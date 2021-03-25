@@ -57,7 +57,7 @@ intEPARaster <- function(data, shape, power = 1,
       crs(r) <- CRS("+proj=longlat +datum=WGS84 +ellps=WGS84 +towgs84=0,0,0")
       ## generate raster (idw with 5 nearest sites)
       gs <- gstat(formula=avg~1, data=dat, nmax = 5, set = list(idp = power))
-      nn <- interpolate(r, gs)
+      nn <- interpolate(r, gs, debug.level = 0)
 
       if(i == 1){
         ras.brick <- brick(nn)
@@ -85,9 +85,6 @@ intEPARaster <- function(data, shape, power = 1,
 
   ras.brick[ras.brick == -1] <- NA #Non-values are given as -1 by raster function
   ras.brick <- crop(ras.brick, extent(shape)) %>% mask(shape)
-
-  setClass('EPARasterBrick', contains = 'RasterBrick',
-           slots = c(monitor_data = 'list'))
 
   ras.brick <- as(ras.brick, 'EPARasterBrick')
 

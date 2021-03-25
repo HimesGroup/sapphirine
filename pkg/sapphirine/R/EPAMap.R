@@ -1,6 +1,6 @@
 #' EPA Raster Leaflet Map
 #'
-#' Renders a `leaflet` map display for brick of interpolated EPA data rasters.
+#' Render a `leaflet` map display for brick of interpolated EPA data rasters.
 #'
 #' @param rasBrick An output of `sapphirine::intEPARaster`
 #' @param popups Whether to include clickable popup displays 1) with summary data for every raster bin in the map display and 2) with descriptions for every monitor location.

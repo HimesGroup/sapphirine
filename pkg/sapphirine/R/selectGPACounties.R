@@ -4,6 +4,7 @@
 #'
 #' @param counties A vector containing names of Greater Philadelphia counties to be included. Proper names can be accessed from `sapphirine::GPACountyNames`
 #' @return A SpatialPolygonsDataFrame shapefile of the input counties.
+#' @import sp
 #' @export
 #' @examples
 #' #Print a list of county names for reference

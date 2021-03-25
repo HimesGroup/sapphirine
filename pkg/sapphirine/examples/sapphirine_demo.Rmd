@@ -1,0 +1,110 @@
+---
+title: "Demo of `sapphirine` R Package"
+author: "Colin Christie"
+date: "24 March 2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(htmltools)
+```
+
+**SAPPHIRINE: Sensor-based Analysis of Pollution in the Philadelphia Region with Information on Neighborhoods and the Environment**
+
+SAPPHIRINE integrates pollution and geospatial data relevant to investigators, citizen scientists, and policy makers in the Greater Philadelphia Area. SAPPHIRINE’s capabilities include providing interactive maps and customizable data retrieval to aid in the visual identification of pollution and other factor hotspots as well as hypothesis generation regarding relationships among these factors and health outcomes. Data for pollution originate from AirCasting and PurpleAir crowdsourced databases (http://aircasting.org/mobile_map, https://www.purpleair.com/sensorlist), and data for crime, Area Deprivation Index, and traffic originate from OpenDataPhilly (https://www.opendataphilly.org/dataset/crime-incidents), Neighborhood Atlas (https://www.neighborhoodatlas.medicine.wisc.edu/), and PennDOT (https://data-pennshare.opendata.arcgis.com/datasets/rmstraffic-traffic-volumes/data), respectively. Data for pollution were also colected with AirBeam sensors in a pilot study by the Himes Lab, funded by CEET (http://ceet.upenn.edu/). EPA pollution data were downloaded from the EPA Air Data Portal (https://aqs.epa.gov/aqsweb/airdata/download_files.html).
+
+The `sapphirine` package comes with 2 comprehensive data sets: `local.data`, which includes sensor-based data for temperature, humidity, PM~1~, PM~2.5~, and PM~10~ as well as crime data; and `EPA.data`, which includes data for PM~2.5~, PM~10~, SO~2~, NO~2~, O~3~, and CO measured at EPA monitoring stations. Data for Traffic and Area Deprivation Index are pre-rendered in raster format and can be accessed from `traffic.raster` and `ADI_data`, respectively.
+
+Install the prerequisite R packages if they do not exist:
+
+```{r eval=F, echo=T}
+library(devtools)
+if('sapphirine' !%in% installed.packages()){
+  devtools::install_github("HimesGroup/sapphirine", subdir = "pkg/sapphirine")
+}
+```
+
+Load package: 
+
+```{r eval=T, echo=T, warning=FALSE, message=FALSE}
+library(sapphirine)
+```
+
+### selectGPACounties
+
+Select subset of of Greater Philadelphia Area counties to generate a custom shapefile for data subsetting and raster generation.
+Call `sapphirine::GPACountyNames` for a list of county names.
+```{r eval=T, echo=T, warning=FALSE, message=FALSE}
+
+counties <- c('Bucks', 'Chester', 'Delaware', 'Montgomery', 'Philadelphia')
+
+cty.shape <- selectGPACounties(counties)
+
+raster::plot(cty.shape)
+```
+
+### customLocalData
+
+Subset `local.data` according to custom parameters.
+Here, we include data within the counties selected above and measured between 1 June 2017 - 31 May 2019 and between 16:00-18:00 U.S. Eastern Time each day.
+```{r eval=T, echo=T, warning=FALSE, message=FALSE}
+
+my.local.data <- customLocalData(cty.shape, '2017-06-01', '2019-05-31', '16:00', '18:00')
+
+head(data.frame(my.local.data))
+```
+
+### localRaster
+
+Create a brick of raster layers corresponding to `local.data` variables.
+Here, we use the local dataset and shapefile created above and use 100x100 resolution.
+```{r eval=T, echo=T, warning=FALSE, message=FALSE}
+
+local.ras <- localRaster(my.local.data, cty.shape, 100, 100)
+
+methods::show(local.ras)
+```
+
+### localMap
+
+Render a `leaflet` map display for a brick of local data rasters.
+Here, we create a map display for `local.ras` and project the boundaries of the counties selected above.
+```{r eval=T, echo=T, warning=FALSE, message=FALSE}
+
+my.local.map <- localMap(local.ras, bounds = cty.shape)
+
+tagList(my.local.map)
+```
+
+### customEPAData
+
+Subset the `EPA.data` according to custom parameters.
+Here, we include data within the counties selected above and measured between 1 June 2017 - 31 May 2019.
+```{r eval=T, echo=T, warning=FALSE, message=FALSE}
+
+my.epa.data <- customEPAData(cty.shape, '2017-06-01', '2019-05-31')
+
+head(data.frame(my.epa.data))
+```
+
+### intEPARaster
+
+Create a brick of 1km x 1km raster layers rendered with inverse-distance-weighted interpolation of EPA data.
+Here, we use the EPA dataset and shapefile created above.
+```{r eval=T, echo=T, warning=FALSE, message=FALSE}
+
+epa.ras <- intEPARaster(my.epa.data, cty.shape)
+
+methods::show(epa.ras)
+```
+
+### EPAMap
+Render a `leaflet` map display for a brick of interpolated EPA data rasters.
+Here, we create a map display for `epa.ras` and project the boundaries of the counties selected above.
+```{r eval=T, echo=T, warning=FALSE, message=FALSE}
+
+my.epa.map <- EPAMap(epa.ras, bounds = cty.shape)
+
+tagList(my.epa.map)
+```
