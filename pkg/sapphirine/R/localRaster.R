@@ -10,6 +10,7 @@
 #' @param includeCount Whether to include density plot raster layers for sensor-based measurement variables (Temperature, Humidity, PM1, PM2.5, PM10) included in `variables`
 #' @return A RasterBrick object consisting of raster layers for all variables included.
 #' @import magrittr
+#' @import rgdal
 #' @import raster
 #' @import dplyr
 #' @import sp
