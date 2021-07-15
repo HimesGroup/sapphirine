@@ -16,6 +16,9 @@ library(tools)
 library(gstat)
 library(prevR)
 library(leafsync)
+library(rgeos)
+
+#options(tigris_use_cache = TRUE)
 
 app.data <- read_feather("databases/local_data.feather")
 
@@ -48,14 +51,14 @@ hours <- c("00:00",
 
 mins <- as_datetime(hm('0:00')): as_datetime(hm('23:59')) %>%
   as_datetime() %>%
-  force_tz(tz = 'UTC') %>%
   strftime(format = '%H:%M') %>%
-  unique()
+  unique() %>%
+  sort()
 #Creates character list that will be indexed for temporal subsetting
 #Use UTC for online and New York for local
 
 sensor.measures <- c("Temperature", "Humidity", "PM1", "PM2.5", "PM10")
-other.measures <- c("Crime", "Area Deprivation Index", "Traffic")
+other.measures <- c("Crime", "Area Deprivation Index", "Traffic", "Tree Cover")
 all.measures <- c(sensor.measures, other.measures)
 
 #Subscripted version of measurements
@@ -67,9 +70,9 @@ titles.list <- c("Avg. Temp. (\u00B0C)", "Avg. Humidity (%)",
                  "Avg. PM\u2081 Conc. (\u03BCg/m\u00B3)", 
                  "Avg. PM\u2082.\u2085 Conc. (\u03BCg/m\u00B3)", 
                  "Avg. PM\u2081\u2080 Conc. (\u03BCg/m\u00B3)", 
-                     "# of Reported Crimes", "Avg. ADI", "Avg. AADT")
+                     "# of Reported Crimes", "Avg. ADI", "Avg. AADT", "% Tree Cover")
 
-suffix.list <- c(".t", ".h", ".pm1", ".pm2.5", ".pm10", ".c", ".pov", ".tr")
+suffix.list <- c(".t", ".h", ".pm1", ".pm2.5", ".pm10", ".c", ".pov", ".tr", ".tc")
 
 titles.df <- data.frame(cbind(all.measures, titles.list, suffix.list))
 
@@ -77,7 +80,9 @@ epa.titles.df <- cbind(c("SO2", "NO2", "O3", "CO", "PM2.5", "PM10"),
                        c("Avg. SO\u2082 Conc. (ppb)", "Avg. NO\u2082 Conc. (ppb)", 
                          "Avg. O\u2083 Conc. (ppb)", "Avg CO Conc. (ppm)",
                          "Avg. PM\u2082.\u2085 Conc. (\u03BCg/m\u00B3)", 
-                         "Avg. PM\u2081\u2080 Conc. (\u03BCg/m\u00B3)")
+                         "Avg. PM\u2081\u2080 Conc. (\u03BCg/m\u00B3)"),
+                       c('SO\u2082', 'NO\u2082', 'O\u2083', 'CO', 'PM\u2082.\u2085',
+                         'PM\u2081\u2080')
                        )
 
 f.titles <- function(y){
@@ -86,10 +91,15 @@ f.titles <- function(y){
 }
 
 f.plaintext <- function(b){
-  if(b == 'PM\u2082.\u2085'){return('PM2.5')}
-  else if(b == 'PM\u2081'){return('PM1')}
-  else if(b == 'PM\u2081\u2080'){return('PM10')}
-  else{return(b)}
+  if(length(b) > 0){
+    if(b == 'PM\u2082.\u2085'){return('PM2.5')}
+    else if(b == 'PM\u2081'){return('PM1')}
+    else if(b == 'PM\u2081\u2080'){return('PM10')}
+    else if(b == 'SO\u2082'){return('SO2')}
+    else if(b == 'NO\u2082'){return('NO2')}
+    else if(b == 'O\u2083'){return('O3')}
+    else{return(b)}
+  } else{return(b)}
 }
 
 f.titles.d <- function(w){paste("log\u2081\u2080 # of", w, "data points")}
@@ -129,7 +139,7 @@ f.top <- function(x){
   }
 }
 
-pov.shp <- shapefile("databases/ADI_data.shp")
+pov.shp <- shapefile("databases/ADI_data/ADI_data.shp")
 
 our.sensors <- fread("databases/LIMEA_AIRBEAM_SUMMARY.csv", 
                      header = TRUE, stringsAsFactors = FALSE)$AirBeamID[1:15]
@@ -137,12 +147,20 @@ our.sensors <- paste0("AirBeam:", our.sensors)
 
 sensor.names <- levels(app.data$Sensor.ID)
 
-county.borders <- shapefile("databases/gpa_counties/gpa_counties.shp") %>%
+GPA_counties <- shapefile("databases/gpa_counties/gpa_counties.shp") %>%
   spTransform(CRSobj = "+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0")
 
-city.border <- county.borders[county.borders$NAME == 'Philadelphia',]
+zipcodes <- shapefile('databases/zipcodes/gpa_zips.shp') %>%
+  spTransform(CRSobj = "+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0")
 
-traffic.raster <- raster("databases/traffic_raster.grd")
+blockGs <- shapefile('databases/block_groups/gpa_blockGroups.shp') %>%
+  spTransform(CRSobj = "+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0")
+
+city.border <- GPA_counties[GPA_counties$NAME == 'Philadelphia',]
+
+traffic.raster <- raster("databases/traffic/traffic_raster.grd")
+
+treeCover <- raster('databases/treecover/treeCover.grd')
 
 #Read in EPA data frames
 EPA_data <- read_feather('./databases/EPA_data.feather')
@@ -228,3 +246,47 @@ myLabelFormat = function(prefix = "", suffix = "", between = " &ndash; ", digits
     })(...))
   }
 }
+
+GPACountyNames <- sort(GPA_counties$NAME)
+
+selectGPACounties <- function(counties){
+  
+  for(i in 1:length(counties)){
+    
+    if(!counties[i] %in% GPACountyNames){
+      stop('counties must be a vector of county names included in GPACountyNames')
+    }
+    
+    shp.layer <- GPA_counties[GPA_counties$NAME == counties[i],]
+    
+    if(i == 1){
+      newShape <- shp.layer
+    } else {
+      newShape <- rbind(newShape, shp.layer)
+    }
+    
+  }
+  
+  return(newShape)
+  
+}
+
+f.centroids <- function(shp){
+ lons <- c()
+ lats <- c()
+ if(length(shp) > 0){
+  for(i in 1:length(shp)){
+    cent <- gCentroid(shp[i,])
+    xval <- xmax(cent)
+    yval <- ymax(cent)
+    lons <- c(lons, xval)
+    lats <- c(lats, yval)
+  }
+ } else {
+   lons <- NA
+   lats <- NA
+ }
+ return(tibble('lons' = lons, 'lats' = lats))
+}
+
+PA <- selectGPACounties(c('Berks', 'Bucks', 'Chester', 'Delaware', 'Montgomery', 'Philadelphia'))[,'NAME']
