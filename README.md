@@ -16,6 +16,7 @@ If you do not have the `devtools` package installed, you will have to run the fi
 
 ```
 # install.packages('devtools')
+library(devtools)
 devtools::install_github("HimesGroup/sapphirine", subdir = "pkg/sapphirine")
 ```
 
