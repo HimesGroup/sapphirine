@@ -15,7 +15,7 @@ ui <- fluidPage(
            strong("R"), "egion with ", strong("I"), "nformation on ",
            strong("N"), "eighborhoods and the ", strong("E"), "nvironment)"
          )),
-         "is an online web application that integrates social and environmental",
+         "is a Shiny application that integrates social and environmental",
          "geospatial data from the Greater Philadelphia Area.",
          "It provides interactive visualizations to help researchers generate",
          "hypotheses for neighborhood-level health studies in Philadelphia.",
@@ -70,7 +70,7 @@ ui <- fluidPage(
       h4("Jaehyun Joo, Alana Schreibman and Blanca Himes.",
          "Source code is on",
          a(href = "https://github.com/HimesGroup/sapphirine", "GitHub",
-           targt = "_blank")),
+           target = "_blank")),
       br(),
       if (file.exists(file.path("www", "Penn.png"))) {
         ## Do not store Penn logo on GitHub
