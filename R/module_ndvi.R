@@ -54,7 +54,9 @@ ndviUI <- function(id) {
         conditionalPanel(
           "input.year.length > 1",
           ns = ns,
-          withSpinner(uiOutput(ns("ndvi_mmap")))
+          withSpinner(uiOutput(ns("ndvi_mmap"))),
+          hr(),
+          uiOutput(ns("trend"))
         )
       )
     )
@@ -81,6 +83,12 @@ ndviServer <- function(id) {
           output$ndvi_mmap <- renderUI(p)
         }
       })
+      ## observeEvent({
+      ##   req(input$ndvi_smap_shape_click)
+      ## }, {
+      ##   browser()
+      ##   click <- input$ndvi_smap_shape_click
+      ## })
     }
   )
 }

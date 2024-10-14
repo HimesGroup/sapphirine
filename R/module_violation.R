@@ -145,8 +145,8 @@ violationServer <- function(id) {
 .draw_violation_leaflet <- function(location, x, min_val, max_val, title,
                                     num_fmt, grid = FALSE) {
   p <- .draw_airquality_leaflet(x = x, min_val = min_val, max_val = max_val,
-                           zoom = 11, num_fmt = num_fmt,
-                           title = title, grid = grid)
+                                zoom = 11, num_fmt = num_fmt,
+                                title = title, grid = grid)
   if (nrow(location) > 0) {
     p |>
       addLayersControl(

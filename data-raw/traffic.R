@@ -12,7 +12,7 @@ pa_files <- list.files(
 )
 
 philly_map <- .maps$census_tract %>%
-  filter(NAMELSADCO == "Philadelphia County")
+  filter(grepl("Philadelphia County", LOCATION))
 
 philly_traffic <- lapply(pa_files, \(x) {
   year <- sub("(.*)(\\d{4})(.*)", "\\2", dirname(x))

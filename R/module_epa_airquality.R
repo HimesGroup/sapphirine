@@ -274,20 +274,6 @@ airqualityServer <- function(id) {
         opacity = 0.6, project = project
       )
   } else {
-    if ("NAME20" %in% names(x)) {
-      ## zip code data
-      polygon_label <- paste0("Zip code ", x$NAME20, ": ", sprintf(num_fmt, x$VALUE))
-    } else if ("NAMELSADCO" %in% names(x)) {
-      polygon_label <- paste0(
-        x$NAMELSAD, ", ", x$NAMELSADCO, ", ", x$STUSPS,
-        ": ", sprintf(num_fmt, x$VALUE)
-      )
-    } else {
-      ## polygon_label <- paste0(
-      ##   x$NAMELSAD, ", ", x$STUSPS, ": ", sprintf(num_fmt, x$VALUE)
-      ## )
-      polygon_label <- paste0(x$NAME, ": ", sprintf(num_fmt, x$VALUE))
-    }
     p |>
       addPolygons(
         data = st_transform(x, 4326),
@@ -300,7 +286,8 @@ airqualityServer <- function(id) {
           weight = 3, color = "#444444", dashArray = NULL,
           fillOpacity = 0.9, bringToFront = FALSE
         ),
-        label = polygon_label
+        ## layerId = x$LOCATION,
+        label = paste0(x$LOCATION, ": ", sprintf(num_fmt, x$VALUE))
       )
   }
 }

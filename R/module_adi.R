@@ -113,6 +113,6 @@ adiServer <- function(id) {
       weight = 3, color = "#444444", dashArray = NULL,
       fillOpacity = 0.9, bringToFront = FALSE
     ),
-    label = paste0(x$label, ": ", x$ADI_NATRANK)
+    label = paste0(x$LOCATION, ": ", x$ADI_NATRANK)
   )
 }

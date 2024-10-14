@@ -49,10 +49,8 @@ svi_tract_list[["2010"]] <- rename(
 svi_tract_summary <- lapply(svi_tract_list[-1], \(x) x[, svi_tract_cols]) |>
   bind_rows(.id = "YEAR") |>
   mutate(across(all_of(contains("RPL_THEME")), ~na_if(., -999))) |>
-  mutate(LOCATION = na_if(LOCATION, "-999")) |>
-  mutate(LOCATION = sub("(.*),(.*),(.*)", "\\1, \\2", LOCATION)) |>
-  mutate(LOCATION = if_else(is.na(LOCATION), NA_character_, paste0(LOCATION, ", ", ST_ABBR))) |>
-  st_transform(4326)
+  st_transform(4326) %>%
+  select(FIPS, YEAR, starts_with("RPL"))
 
 ## County
 svi_county_files <- list.files(
@@ -75,20 +73,16 @@ svi_county_list[["2010"]] <- rename(
 svi_county_summary <- lapply(svi_county_list[-1], function(x) x[, svi_county_cols]) |>
   bind_rows(.id = "YEAR") |>
   st_transform(4326) |>
-  mutate(LOCATION = paste0(COUNTY, ", ", ST_ABBR)) |>
   mutate(across(all_of(contains("RPL_THEME")), ~na_if(., -999))) |>
-  mutate(LOCATION = na_if(LOCATION, "-999")) |>
-  select(YEAR:FIPS, LOCATION, everything())
+  select(FIPS, YEAR, starts_with("RPL"))
 
 
 svi_county_summary <- .maps$county |>
-  mutate(FIPS = paste0(STATEFP, COUNTYFP)) |>
-  select(FIPS) |>
+  rename(FIPS = GEOID) |>
   merge(st_drop_geometry(svi_county_summary))
 
 svi_tract_summary <- .maps$census_tract |>
   rename(FIPS = GEOID) |>
-  select(FIPS) |>
   merge(st_drop_geometry(svi_tract_summary))
 
 svi_summary <- list(

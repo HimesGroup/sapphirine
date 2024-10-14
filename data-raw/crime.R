@@ -24,7 +24,7 @@ crime_data <- lapply(crime_files, function(x) {
   }
   census_tract <- Reduce(function(x, y) st_join(x, y, st_equals), ag_list) %>%
     st_join(x = .maps$census_tract, y = ., st_equals) %>%
-    filter(NAMELSADCO == "Philadelphia County") %>%
+    filter(grepl("Philadelphia County", LOCATION)) %>%
     mutate(across(all_of(names(crime_dummy)), \(x) replace_na(x, 0))) %>%
     rowwise() %>%
     mutate(Total = sum(c_across(names(crime_dummy)))) %>%

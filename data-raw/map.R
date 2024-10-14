@@ -1,5 +1,6 @@
 ## Philadelphia-Camden-Wilmington statistical area (code: 37980)
 library(sf)
+library(dplyr)
 
 #################################################################################
 ## Shape for Philadelphia-Camden-Wilmington statistical area (code: 37980)
@@ -46,11 +47,28 @@ us_tract <- get_shape_file("tract")
 us_block <- get_shape_file("block")
 us_zipcode <- get_shape_file("zipcode")
 
-map_cbsa <- st_transform(us_cbsa[us_cbsa$GEOID == 37980, ], 4326) # WGS84
-map_county <- map_cbsa_overlap(us_county)
-map_tract <- map_cbsa_overlap(us_tract)
-map_block <- map_cbsa_overlap(us_block)
-map_zipcode <- map_cbsa_overlap(us_zipcode)
+map_cbsa <- st_transform(us_cbsa[us_cbsa$GEOID == 37980, ], 4326) %>% # WGS84
+  select(NAMELSAD) %>%
+  rename(LOCATION = NAMELSAD)
+map_county <- map_cbsa_overlap(us_county) %>%
+  mutate(LOCATION = paste0(NAMELSAD, ", ", STUSPS)) %>%
+  select(GEOID, LOCATION)
+map_tract <- map_cbsa_overlap(us_tract) %>%
+  mutate(LOCATION = paste0(NAMELSAD, ", ", NAMELSADCO, ", ", STUSPS)) %>%
+  select(GEOID, LOCATION)
+map_block <- map_cbsa_overlap(us_block) %>%
+  inner_join(
+    x = .,
+    y = st_drop_geometry(us_tract) %>%
+      mutate(NAMELSADTRACT = paste0(NAMELSAD, ", ", NAMELSADCO, ", ", STUSPS)) %>%
+      select(STATEFP, COUNTYFP, TRACTCE, NAMELSADTRACT),
+    by = c("STATEFP", "COUNTYFP", "TRACTCE")
+  ) %>%
+  mutate(LOCATION = paste0(NAMELSAD, ", ", NAMELSADTRACT)) %>%
+  select(GEOID, LOCATION)  # need GEOID for ADI mapping
+map_zipcode <- map_cbsa_overlap(us_zipcode) %>%
+  rename(LOCATION = NAME20) %>%
+  select(LOCATION)
 
 .maps <- list(
   cbsa = map_cbsa,

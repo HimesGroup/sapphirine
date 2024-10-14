@@ -64,7 +64,6 @@ sum_by <- function(year, geography = c("tract", "block group")) {
     st_join(target_map, water_damage, st_equals) |>
       st_join(air_contaminant, st_equals) |>
       st_join(pest_infestation, st_equals) |>
-      ## filter(NAMELSADCO == "Philadelphia County") |>
       mutate(across(c(water_damage, air_contaminant, pest_infestation), \(y) replace_na(y, 0))) |>
       mutate(total = water_damage + air_contaminant + pest_infestation)
   }) %>%
@@ -76,8 +75,10 @@ violation_location <- violation_data %>%
   bind_rows(.id = "YEAR") %>%
   select(violationc, YEAR, violatio_1) %>%
   filter(YEAR %in% 2013:2022)
-violation_tract <- sum_by(2013:2022, "tract")
-violation_block <- sum_by(2013:2022, "block group")
+violation_tract <- sum_by(2013:2022, "tract") %>%
+  rename(LOCATION = NAME)
+violation_block <- sum_by(2013:2022, "block group") %>%
+  rename(LOCATION = NAME)
 
 violation_summary <- list(
   location = violation_location,

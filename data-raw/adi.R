@@ -17,14 +17,7 @@ adi_list <- lapply(adi_files[2:3], function(x) {
   d$YEAR <- year
   d <- d[, c("FIPS", "ADI_NATRANK", "ADI_STATERNK", "YEAR")]
   d <- setNames(d, c("GEOID", "ADI_NATRANK", "ADI_STATERNK", "YEAR"))
-  county_nms <- unique(
-    st_drop_geometry(.maps$county)[, c("STATEFP", "COUNTYFP", "NAMELSAD", "STUSPS")]
-  )
-  names(county_nms)[3] <- "COUNTY"
-  m <- merge(.maps$block_group[, c("GEOID", "STATEFP", "COUNTYFP", "NAMELSAD")],
-             county_nms)
-  m$label <- paste(m$NAMELSAD, m$COUNTY, m$STUSPS, sep = ", ")
-  merge(m[, c("GEOID", "label")], d)
+  merge(.maps$block_group, d)
 })
 
 adi <- do.call(rbind, adi_list) # need to figure out issue in 2015 (non-unique FIPS)
