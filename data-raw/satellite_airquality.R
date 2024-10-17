@@ -26,7 +26,7 @@ pollutant_cooper <- lapply(file_cooper, \(x) {
     list(value = no2[[1]]),
     dimensions = st_dimensions(x = as.vector(lon[[1]]), y = as.vector(lat[[1]])),
   )
-  obj <- c(obj, along = list(year = year))
+  obj <- c(obj, along = list(YEAR = year))
   st_set_crs(obj, 4326) %>%
     st_warp(crs = 3857)
 })
@@ -35,7 +35,7 @@ pollutant_cooper_grid <- lapply(pollutant_cooper, \(x) {
   map <- st_transform(.maps$cbsa, st_crs(x))
   x[map]
 })
-pollutant_cooper_grid <- do.call(c, c(pollutant_cooper_grid, along = "year"))
+pollutant_cooper_grid <- do.call(c, c(pollutant_cooper_grid, along = "YEAR"))
 
 aw_by <- function(x, map, extensive = FALSE, ...) {
   map <- st_transform(map, st_crs(x))
@@ -46,8 +46,9 @@ aw_by <- function(x, map, extensive = FALSE, ...) {
   x <- st_join(map, x, join = st_equals)
   x <- rename_with(x, ~sub("^X(\\d+)$", "\\1", .x))
   col_to_pick <- grep("^\\d+$", names(x), value = TRUE)
-  pivot_longer(x, cols = any_of(col_to_pick), names_to = "year") %>%
-    mutate(year = as.integer(year))
+  pivot_longer(x, cols = any_of(col_to_pick), names_to = "YEAR",
+               values_to = "VALUE") %>%
+    mutate(YEAR = as.integer(YEAR))
 }
 
 pollutant_cooper_county <- aw_by(pollutant_cooper_grid, .maps$county)
@@ -81,12 +82,12 @@ file_annenberg <- list.files(
 )
 
 pollutant_annenberg <- lapply(file_annenberg, \(x) {
-  obj <- setNames(read_stars(x, proxy = FALSE), "value")
+  obj <- setNames(read_stars(x, proxy = FALSE), "VALUE")
   bounding <- st_bbox(c(xmin = -76.3, xmax = -74.2, ymin = 39.15, ymax = 40.75),
                       crs = st_crs(obj))
   obj <- st_crop(obj, bounding)
   year <- sub("^(\\d+)_(.*)", "\\1", basename(x))
-  c(obj, along = list(year = year)) %>%
+  c(obj, along = list(YEAR = year)) %>%
     st_warp(crs = 3857)
 })
 
@@ -94,7 +95,7 @@ pollutant_annenberg_grid <- lapply(pollutant_annenberg, \(x) {
   map <- st_transform(.maps$cbsa, st_crs(x))
   x[map]
 })
-pollutant_annenberg_grid <- do.call(c, c(pollutant_annenberg_grid, along = "year"))
+pollutant_annenberg_grid <- do.call(c, c(pollutant_annenberg_grid, along = "YEAR"))
 
 pollutant_annenberg_county <- aw_by(pollutant_annenberg_grid, .maps$county)
 
@@ -135,28 +136,15 @@ pollutant_shen <- lapply(file_shen, \(x) {
     st_as_stars() %>%
     st_set_crs(4326) %>%
     st_warp(crs = 3857) %>%
-    setNames(nm = "value")
-  obj <- c(obj, along = list(year = year))
+    setNames(nm = "VALUE")
+  obj <- c(obj, along = list(YEAR = year))
 })
 
 pollutant_shen_grid <- lapply(pollutant_shen, \(x) {
   map <- st_transform(.maps$cbsa, st_crs(x))
   x[map]
 })
-pollutant_shen_grid <- do.call(c, c(pollutant_shen_grid, along = "year"))
-
-aw_by <- function(x, map, extensive = FALSE, ...) {
-  map <- st_transform(map, st_crs(x))
-  x <- st_as_sf(x[map])
-  suppressWarnings(
-    x <- st_interpolate_aw(x, map, extensive = extensive, na.rm = TRUE, ...)
-  )
-  x <- st_join(map, x, join = st_equals)
-  x <- rename_with(x, ~sub("^X(\\d+)$", "\\1", .x))
-  col_to_pick <- grep("^\\d+$", names(x), value = TRUE)
-  pivot_longer(x, cols = any_of(col_to_pick), names_to = "year") %>%
-    mutate(year = as.integer(year))
-}
+pollutant_shen_grid <- do.call(c, c(pollutant_shen_grid, along = "YEAR"))
 
 pollutant_shen_county <- aw_by(pollutant_shen_grid, .maps$county)
 
@@ -197,15 +185,15 @@ pollutant_van <- lapply(file_van, \(x) {
     st_as_stars() %>%
     st_set_crs(4326) %>%
     st_warp(crs = 3857) %>%
-    setNames(nm = "value")
-  obj <- c(obj, along = list(year = year))
+    setNames(nm = "VALUE")
+  obj <- c(obj, along = list(YEAR = year))
 })
 
 pollutant_van_grid <- lapply(pollutant_van, \(x) {
   map <- st_transform(.maps$cbsa, st_crs(x))
   x[map]
 })
-pollutant_van_grid <- do.call(c, c(pollutant_van_grid, along = "year"))
+pollutant_van_grid <- do.call(c, c(pollutant_van_grid, along = "YEAR"))
 
 pollutant_van_county <- aw_by(pollutant_van_grid, .maps$county)
 

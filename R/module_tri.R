@@ -13,7 +13,7 @@ triUI <- function(id) {
             selectizeInput(
               inputId = ns("pollutant"),
               label = NULL,
-              choice = .tri_list,
+              choice = .tri_var_list,
               multiple = FALSE,
               selected = "FUGITIVE.AIR"
             ),
@@ -33,8 +33,8 @@ triUI <- function(id) {
             radioButtons(
               inputId = ns("data_type"),
               label = "Total emissions by",
-              choices = c("County", "Census Tract"),
-              selected = "Census Tract"
+              choices = .tri_type_list,
+              selected = "census_tract"
             ),
             hr(),
             selectizeInput(
@@ -52,7 +52,11 @@ triUI <- function(id) {
         conditionalPanel(
           "input.year.length == 1",
           ns = ns,
-          withSpinner(leafletOutput(ns("tri_smap"), height = "67vh"))
+          withSpinner(leafletOutput(ns("tri_smap"), height = "67vh")),
+          hr(),
+          p(strong("Click a polygon of interest to view historical change."),
+            style = "color: #3CB371; margin-bottom: 20px"),
+          plotlyOutput(ns("trend"))
         ),
         conditionalPanel(
           "input.year.length > 1",
@@ -82,22 +86,41 @@ triServer <- function(id) {
           output$tri_mmap <- renderUI(p)
         }
       })
+      observeEvent({
+        req(input$tri_smap_shape_click)
+      }, {
+        click_info <- input$tri_smap_shape_click
+        x <- tri[[input$data_type]]
+        x <- x[x$LOCATION %in% click_info$id, ] |>
+          st_drop_geometry()
+        x <- x[order(x$YEAR), ]
+        p <- x |>
+          plot_ly(x = ~ YEAR, y = ~ FUGITIVE.AIR,
+                  type = "scatter", mode = "lines+markers",
+                  name = "Fugitive Air Emission",
+                  hovertemplate = "<br><b>Value</b>: %{y:.3f}") |>
+          add_trace(y = ~ STACK.AIR, name = "Stack Air Emission") |>
+          layout(title = click_info$id, xaxis = list(title = "Year"),
+                 yaxis = list(title = "Pound"),
+                 hovermode = "x unified")
+        output$trend <- renderPlotly(p)
+      })
     }
   )
 }
 
-.tri_list <- list(
+.tri_var_list <- list(
   `Fugitive Air Emission` = "FUGITIVE.AIR",
-  `Statck Air Emission` = "STACK.AIR"
+  `Stack Air Emission` = "STACK.AIR"
 )
 
-.subset_tri <- function(type, year) {
-  type <- switch(
-    type,
-    "County" = "county",
-    "Census Tract" = "census_tract",
-    "Zip Code" = "zip_code",
-    )
+.tri_type_list <- list(
+  `County` = "county",
+  `Census Tract` =  "census_tract"
+)
+
+.subset_tri <- function(type = c("census_tract", "county"), year) {
+  type <- match.arg(type)
   x <- tri[[type]]
   x[x$YEAR %in% year, ]
 }

@@ -30,16 +30,16 @@ ndviUI <- function(id) {
               label = "Geographic unit",
               ## disable temporarily Grid
               ## choices = c("County", "Census Tract", "Zip Code", "Grid"),
-              choices = c("County", "Census Tract"),
-              selected = "Census Tract"
+              choices = .ndvi_type_list,
+              selected = "census_tract"
             ),
             hr(),
             selectizeInput(
               inputId = ns("year"),
               label = "Year",
-              choice = sort(unique(ndvi$county$year), decreasing = TRUE),
+              choice = sort(unique(ndvi$county$YEAR), decreasing = TRUE),
               multiple = TRUE,
-              selected = sort(unique(ndvi$county$year), decreasing = TRUE)[1]
+              selected = sort(unique(ndvi$county$YEAR), decreasing = TRUE)[1]
             )
           )
         ),
@@ -49,14 +49,20 @@ ndviUI <- function(id) {
         conditionalPanel(
           "input.year.length == 1",
           ns = ns,
-          withSpinner(leafletOutput(ns("ndvi_smap"), height = "67vh"))
+          withSpinner(leafletOutput(ns("ndvi_smap"), height = "67vh")),
+          conditionalPanel(
+            "input.data_type != 'grid'",
+            ns = ns,
+            hr(),
+            p(strong("Click a polygon of interest to view historical change."),
+              style = "color: #3CB371; margin-bottom: 20px"),
+            plotlyOutput(ns("trend"))
+          )
         ),
         conditionalPanel(
           "input.year.length > 1",
           ns = ns,
-          withSpinner(uiOutput(ns("ndvi_mmap"))),
-          hr(),
-          uiOutput(ns("trend"))
+          withSpinner(uiOutput(ns("ndvi_mmap")))
         )
       )
     )
@@ -83,31 +89,33 @@ ndviServer <- function(id) {
           output$ndvi_mmap <- renderUI(p)
         }
       })
-      ## observeEvent({
-      ##   req(input$ndvi_smap_shape_click)
-      ## }, {
-      ##   browser()
-      ##   click <- input$ndvi_smap_shape_click
-      ## })
+      observeEvent({
+        req(input$ndvi_smap_shape_click)
+      }, {
+        click_info <- input$ndvi_smap_shape_click
+        x <- ndvi[[input$data_type]]
+        x <- x[x$LOCATION %in% click_info$id, ] |>
+          st_drop_geometry()
+        output$trend <- renderPlotly(.trend_plot(x, click_info$id, ylab = "NDVI"))
+      })
     }
   )
 }
 
-.subset_ndvi <- function(type, year) {
-  type <- switch(
-    type,
-    "Grid" = "grid",
-    "County" = "county",
-    "Census Tract" = "census_tract",
-    "Zip Code" = "zip_code"
-  )
+.ndvi_type_list <- list(
+  `County` = "county",
+  `Census Tract` =  "census_tract"
+)
+
+.subset_ndvi <- function(type = c("census_tract", "county"), year) {
+  type <- match.arg(type)
   x <- ndvi[[type]]
   if (type == "grid") {
     ## year <- as.character(year)
     ## x[, , , year, drop = TRUE]
     x[, , , as.character(year), drop = TRUE]
   } else {
-    x[x$year %in% as.integer(year), ]
+    x[x$YEAR %in% as.integer(year), ]
   }
 }
 
@@ -133,15 +141,13 @@ ndviServer <- function(id) {
 
 .draw_ndvi_sf <- function(type, year) {
   x <- .subset_ndvi(type, year)
-  value_idx <- match("value", names(x))
-  names(x)[value_idx] <- "VALUE"
   min_val <- min(x$VALUE, na.rm = TRUE)
   max_val <- max(x$VALUE, na.rm = TRUE)
   ## min_val = -1
   ## max_val = 1
   if (length(year) > 1) {
     plist <- lapply(year, function(k) {
-      .draw_ndvi_leaflet(x[x$year == k, ], min_val, max_val,
+      .draw_ndvi_leaflet(x[x$YEAR == k, ], min_val, max_val,
                          title = paste0("Year: ", k), grid = FALSE,
                          col_reverse = FALSE, palette = "Greens")
     })

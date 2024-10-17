@@ -4,8 +4,9 @@ library(stars)
 library(shinycssloaders)
 library(leaflet)
 library(leafsync)
+library(plotly)
 
-options(rsconnect.max.bundle.size=3145728000)
+options(rsconnect.max.bundle.size = 3145728000)
 
 ## NDVI
 ndvi <- readRDS(file.path("sapphirine_data", "RDS", "ndvi.RDS"))

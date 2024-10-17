@@ -18,7 +18,7 @@ airqualityUI <- function(id) {
             selectizeInput(
               inputId = ns("pollutant"),
               label = NULL,
-              choice = .pollutant_list,
+              choice = .airquality_var_list,
               multiple = FALSE,
               selected = "CO 1-hour 1971"
             ),
@@ -47,8 +47,8 @@ airqualityUI <- function(id) {
               label = "Geographic unit",
               ## disable temporarily Grid
               ## choices = c("County", "Census Tract", "Zip Code", "Grid"),
-              choices = c("County", "Census Tract"),
-              selected = "Census Tract"
+              choices = .airquality_type_list,
+              selected = "census_tract"
             ),
             hr(),
             selectizeInput(
@@ -74,7 +74,15 @@ airqualityUI <- function(id) {
         conditionalPanel(
           "input.year.length == 1",
           ns = ns,
-          withSpinner(leafletOutput(ns("airquality_smap"), height = "67vh"))
+          withSpinner(leafletOutput(ns("airquality_smap"), height = "67vh")),
+          conditionalPanel(
+            "input.data_type != 'grid'",
+            ns = ns,
+            hr(),
+            p(strong("Click a polygon of interest to view historical change."),
+              style = "color: #3CB371; margin-bottom: 20px"),
+            plotlyOutput(ns("trend"))
+          )
         ),
         conditionalPanel(
           "input.year.length > 1",
@@ -91,7 +99,8 @@ airqualityServer <- function(id) {
   moduleServer(
     id,
     function(input, output, session) {
-      rv <- reactiveValues(data = NULL, unit = NULL)
+      rv <- reactiveValues(data = NULL, unit = NULL, trend = NULL,
+                           trend_subtitle = NULL)
       observeEvent({
         req(input$pollutant)
         req(input$data_type)
@@ -117,11 +126,19 @@ airqualityServer <- function(id) {
           input$data_type, input$pollutant, data_field_selected,
           input$event, input$year
         )
+        rv$trend <- .subset_airquality(
+          input$data_type, input$pollutant, data_field_selected,
+          input$event, unique(airquality$county$YEAR)
+        )
+        rv$trend_subtitle <- paste0(
+          "<sub>", input$pollutant, "; ", data_field_selected, "; ",
+          input$event, "</sub>"
+        )
       })
       observeEvent({
         rv$data
       }, {
-        if (input$data_type == "Grid") {
+        if (input$data_type == "grid") {
           p <- .draw_airquality_grid(rv$data, rv$unit, input$year)
         } else {
           p <- .draw_airquality_sf(rv$data, rv$unit, input$year)
@@ -132,17 +149,32 @@ airqualityServer <- function(id) {
           output$airquality_mmap <- renderUI(p)
         }
       })
+      observeEvent({
+        req(input$airquality_smap_shape_click)
+      }, {
+        click_info <- input$airquality_smap_shape_click
+        x <- rv$trend[rv$trend$LOCATION %in% click_info$id, ] |>
+          st_drop_geometry()
+        ylabel <- gsub("\\(|\\)", "", rv$unit)
+        title <- paste0(click_info$id, "<br>", rv$trend_subtitle)
+        output$trend <- renderPlotly(.trend_plot(x, title = title, ylab = ylabel))
+      })
     }
   )
 }
 
-.pollutant_list <- list(
+.airquality_var_list <- list(
   `Carbon monoxide (42101)` = list("CO 1-hour 1971", "CO 8-hour 1971"),
   `Sulfur dioxide (42401)` = list("SO2 1-hour 2010"),
   `Nitrogen dioxide (42602)` = list("NO2 1-hour 2010", "NO2 Annual 1971"),
   `Ozone (44201)` = list("Ozone 8-hour 2015"),
   `PM2.5 - Local conditions (88101)` = list("PM2.5 24-hour 2012", "PM2.5 Annual 2012"),
   `PM10 - Total 0-10um STP (81102)` = list("PM10 24-hour 2006")
+)
+
+.airquality_type_list <- list(
+  `County` = "county",
+  `Census Tract` =  "census_tract"
 )
 
 .get_data_field <- function(x) {
@@ -194,17 +226,11 @@ airqualityServer <- function(id) {
   x[x$YEAR %in% as.integer(year), ]
 }
 
-.subset_airquality <- function(type = c("Grid", "County",
-                                        "Census Tract", "Zip Code"),
+.subset_airquality <- function(type = c("census_tract", "county"),
                                pollutant, data_field,
                                event = c("Events Included", "Events Excluded"),
                                year) {
   type <- match.arg(type)
-  type <- switch(
-    type,
-    "Grid" = "grid", "County" = "county",
-    "Census Tract" = "census_tract", "Zip Code" = "zip_code"
-  )
   x <- airquality[[type]]
   pollutant <- .translate_standard(pollutant)
   event <- match.arg(event)
@@ -286,7 +312,7 @@ airqualityServer <- function(id) {
           weight = 3, color = "#444444", dashArray = NULL,
           fillOpacity = 0.9, bringToFront = FALSE
         ),
-        ## layerId = x$LOCATION,
+        layerId = x$LOCATION,
         label = paste0(x$LOCATION, ": ", sprintf(num_fmt, x$VALUE))
       )
   }

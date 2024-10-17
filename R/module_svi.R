@@ -46,7 +46,11 @@ sviUI <- function(id) {
         conditionalPanel(
           "input.year.length == 1",
           ns = ns,
-          withSpinner(leafletOutput(ns("svi_smap"), height = "67vh"))
+          withSpinner(leafletOutput(ns("svi_smap"), height = "67vh")),
+          hr(),
+          p(strong("Click a polygon of interest to view historical change."),
+            style = "color: #3CB371; margin-bottom: 20px"),
+          plotlyOutput(ns("trend"))
         ),
         conditionalPanel(
           "input.year.length > 1",
@@ -74,10 +78,31 @@ sviServer <- function(id) {
           output$svi_mmap <- renderUI(p)
         }
       })
+      observeEvent({
+        req(input$svi_smap_shape_click)
+      }, {
+        click_info <- input$svi_smap_shape_click
+        x <- svi[[input$data_type]]
+        x <- x[x$LOCATION %in% click_info$id, ] |>
+          st_drop_geometry()
+        x <- x[order(x$YEAR), ]
+        p <- x |>
+          plot_ly(x = ~ YEAR, y = ~ RPL_THEMES,
+                  type = "scatter", mode = "lines+markers",
+                  name = "Overall Summary Ranking",
+                  hovertemplate = "<br><b>Value</b>: %{y:.3f}") |>
+          add_trace(y = ~ RPL_THEME1, name = "Socioeconomic Status") |>
+          add_trace(y = ~ RPL_THEME2, name = "Household Characteristics") |>
+          add_trace(y = ~ RPL_THEME3, name = "Racial & Ethnic Minority Status") |>
+          add_trace(y = ~ RPL_THEME4, name = "Housing Type & Transportation") |>
+          layout(title = click_info$id, xaxis = list(title = "Year"),
+                 yaxis = list(title = "SVI Theme Score"),
+                 hovermode = "x unified")
+        output$trend <- renderPlotly(p)
+      })
     }
   )
 }
-
 
 .svi_var_list <- list(
   `Overall Summary Ranking` = "RPL_THEMES",
@@ -136,6 +161,7 @@ sviServer <- function(id) {
         weight = 3, color = "#444444", dashArray = NULL,
         fillOpacity = 0.9, bringToFront = FALSE
       ),
+      layerId = ~ LOCATION,
       label = paste0(x$LOCATION, ": ", sprintf("%.3f", x$VALUE))
     )
 }

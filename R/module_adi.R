@@ -41,7 +41,11 @@ adiUI <- function(id) {
         conditionalPanel(
           "input.year.length == 1",
           ns = ns,
-          withSpinner(leafletOutput(ns("adi_smap"), height = "67vh"))
+          withSpinner(leafletOutput(ns("adi_smap"), height = "67vh")),
+          hr(),
+          p(strong("Click a polygon of interest to view historical change."),
+            style = "color: #3CB371; margin-bottom: 20px"),
+          plotlyOutput(ns("trend"))
         ),
         conditionalPanel(
           "input.year.length > 1",
@@ -67,6 +71,19 @@ adiServer <- function(id) {
         } else {
           output$adi_mmap <- renderUI(p)
         }
+      })
+      observeEvent({
+        req(input$adi_smap_shape_click)
+      }, {
+        click_info <- input$adi_smap_shape_click
+        x <- adi[adi$LOCATION %in% click_info$id, ] |>
+          st_drop_geometry()
+        value_idx <- match("ADI_NATRANK", names(x))
+        names(x)[value_idx] <- "VALUE"
+        output$trend <- renderPlotly(
+          .trend_plot(x, click_info$id, fmt_y = "%{y}",
+                      ylab = "National ADI Percentile")
+        )
       })
     }
   )
@@ -113,6 +130,7 @@ adiServer <- function(id) {
       weight = 3, color = "#444444", dashArray = NULL,
       fillOpacity = 0.9, bringToFront = FALSE
     ),
+    layerId = ~ LOCATION,
     label = paste0(x$LOCATION, ": ", x$ADI_NATRANK)
   )
 }

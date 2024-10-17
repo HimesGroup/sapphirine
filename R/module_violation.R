@@ -12,7 +12,7 @@ violationUI <- function(id) {
             selectizeInput(
               inputId = ns("violation_var"),
               label = NULL,
-              choice = .violation_list,
+              choice = .violation_var_list,
               multiple = FALSE,
               selected = "total",
               ),
@@ -40,8 +40,8 @@ violationUI <- function(id) {
             radioButtons(
               inputId = ns("data_type"),
               label = "Geographic Unit",
-              choices = c("Census Tract", "Block Group"),
-              selected = "Census Tract"
+              choices = .violation_type_list,
+              selected = "census_tract"
             ),
             hr(),
             selectizeInput(
@@ -60,7 +60,11 @@ violationUI <- function(id) {
         conditionalPanel(
           "input.year.length == 1",
           ns = ns,
-          withSpinner(leafletOutput(ns("violation_smap"), height = "67vh"))
+          withSpinner(leafletOutput(ns("violation_smap"), height = "67vh")),
+          hr(),
+          p(strong("Click a polygon of interest to view historical change."),
+            style = "color: #3CB371; margin-bottom: 20px"),
+          plotlyOutput(ns("trend"))
         ),
         conditionalPanel(
           "input.year.length > 1",
@@ -91,23 +95,64 @@ violationServer <- function(id) {
           output$violation_mmap <- renderUI(p)
         }
       })
+      observeEvent({
+        req(input$violation_smap_shape_click)
+      }, {
+        click_info <- input$violation_smap_shape_click
+        x <- violation[[input$data_type]]
+        x <- x[x$LOCATION %in% click_info$id, ] |>
+          st_drop_geometry()
+        x <- x[order(x$YEAR), ]
+        if (input$pop_adj) {
+          x$total <- x$total / x$estimate
+          x$water_damage <- x$water_damage / x$estimate
+          x$air_contaminant <- x$air_contaminant / x$estimate
+          x$pest_infestation <- x$pest_infestation / x$estimate
+          ylabel <- "Violations / 100 People"
+          fmt_y <- "%{y:.3f}"
+        } else {
+          ylabel <- "Violation"
+          fmt_y <- "%{y}"
+        }
+        p <- x |>
+          plot_ly(x = ~ YEAR, y = ~ total,
+                  type = "scatter", mode = "lines+markers",
+                  name = "Total Violations",
+                  hovertemplate = paste0("<br><b>Value</b>: ", fmt_y)) |>
+          add_trace(y = ~ water_damage, name = "Water Damage Violations") |>
+          add_trace(y = ~ air_contaminant, name = "Air Contaminant Violations") |>
+          add_trace(y = ~ pest_infestation, name = "Pest Infestation Violations") |>
+          layout(title = click_info$id, xaxis = list(title = "Year"),
+                 yaxis = list(title = ylabel),
+                 hovermode = "x unified")
+        output$trend <- renderPlotly(p)
+      })
     }
   )
 }
 
-.violation_list <- list(
+.violation_var_list <- list(
   `Total Violations` = "total",
   `Water Damage Violations` = "water_damage",
   `Air Contaminant Violations` = "air_contaminant",
   `Pest Infestation Violations` = "pest_infestation"
 )
 
-.draw_violation <- function(type, violation_var, year, pop_adj) {
-  if (type == "Census Tract") {
-    x <- violation$census_tract[violation$census_tract$YEAR %in% year, ]
-  } else {
-    x <- violation$block_group[violation$block_group$YEAR %in% year, ]
-  }
+.violation_type_list <- list(
+  `Census Tract` =  "census_tract",
+  `Block Group` = "block_group"
+)
+
+.draw_violation <- function(type = c("census_tract", "block_group"),
+                            violation_var, year, pop_adj) {
+  type <- match.arg(type)
+  x <- violation[[type]]
+  x <- x[x$YEAR %in% year, ]
+  ## if (type == "Census Tract") {
+  ##   x <- violation$census_tract[violation$census_tract$YEAR %in% year, ]
+  ## } else {
+  ##   x <- violation$block_group[violation$block_group$YEAR %in% year, ]
+  ## }
   value_idx <- match(violation_var, names(x))
   names(x)[value_idx] <- "VALUE"
   num_fmt <- "%.0f"

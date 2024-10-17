@@ -44,7 +44,11 @@ crimeUI <- function(id) {
         conditionalPanel(
           "input.year.length == 1",
           ns = ns,
-          withSpinner(leafletOutput(ns("crime_smap"), height = "67vh"))
+          withSpinner(leafletOutput(ns("crime_smap"), height = "67vh")),
+          hr(),
+          p(strong("Click a polygon of interest to view historical change."),
+            style = "color: #3CB371; margin-bottom: 20px"),
+          plotlyOutput(ns("trend"))
         ),
         conditionalPanel(
           "input.year.length > 1",
@@ -70,6 +74,20 @@ crimeServer <- function(id) {
         } else {
           output$crime_mmap <- renderUI(p)
         }
+      })
+      observeEvent({
+        req(input$crime_smap_shape_click)
+      }, {
+        click_info <- input$crime_smap_shape_click
+        x <- crime$census_tract
+        x <- x[x$LOCATION %in% click_info$id, ] |>
+          st_drop_geometry()
+        value_idx <- match(input$crime_var, names(x))
+        names(x)[value_idx] <- "VALUE"
+        ylabel <- names(.crime_list)[.crime_list == input$crime_var]
+        output$trend <- renderPlotly(
+          .trend_plot(x, click_info$id, fmt_y = "%{y}", ylab = ylabel)
+        )
       })
     }
   )
