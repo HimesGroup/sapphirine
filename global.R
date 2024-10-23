@@ -27,7 +27,7 @@ violation <- readRDS(file.path("sapphirine_data", "RDS", "violation.RDS"))
 crime <- readRDS(file.path("sapphirine_data", "RDS", "crime.RDS"))
 
 ## Traffic data
-traffic <- readRDS(file.path("sapphirine_data", "RDS", "philly_traffic.RDS"))
+traffic <- readRDS(file.path("sapphirine_data", "RDS", "traffic.RDS"))
 
 ## EPA air quality data in global scope
 airquality <- readRDS(file.path("sapphirine_data", "RDS", "epa_airquality.RDS"))

@@ -12,10 +12,7 @@ trafficUI <- function(id) {
             selectizeInput(
               inputId = ns("traffic_var"),
               label = NULL,
-              choice = list(
-                `Annual Average Daily Traffic (AADT)` = "AADT",
-                `Daily Vehicle Miles Traveled (DVMT)` = "DVMT"
-                ),
+              choice = .traffic_var_list,
               multiple = FALSE,
               selected = "AADT",
               ),
@@ -26,10 +23,12 @@ trafficUI <- function(id) {
                 "RMSTRAFFIC (Traffic Volumes)", target = "_blank"),
               "(Philadelphia County only)"
               ),
-            p(span("Preprocessing: ", style = "font-weight: bold; color: orange"),
-              "2D Cartesian lengths of roads are obtained in",
-              a(href = "https://epsg.io/32618", "EPSG:32618 (WGS 84 / UTM zone 18N)"),
-              "projected coordinate system to calculate Daily Vehicle Miles Traveled."),
+            p(span("Road Segment Key: ", style = "font-weight: bold; color: orange"),
+              "RMSTRAFFIC_LRS_KEY (length: 23)"),
+            ## p(span("Preprocessing: ", style = "font-weight: bold; color: orange"),
+            ##   "2D Cartesian lengths of roads are obtained in",
+            ##   a(href = "https://epsg.io/32618", "EPSG:32618 (WGS 84 / UTM zone 18N)"),
+            ##   "projected coordinate system to calculate Daily Vehicle Miles Traveled."),
             hr(),
             selectizeInput(
               inputId = ns("year"),
@@ -46,7 +45,11 @@ trafficUI <- function(id) {
         conditionalPanel(
           "input.year.length == 1",
           ns = ns,
-          withSpinner(leafletOutput(ns("traffic_smap"), height = "67vh"))
+          withSpinner(leafletOutput(ns("traffic_smap"), height = "67vh")),
+          hr(),
+          p(strong("Click a road segment of interest to view historical change."),
+            style = "color: #3CB371; margin-bottom: 20px"),
+          plotlyOutput(ns("trend"))
         ),
         conditionalPanel(
           "input.year.length > 1",
@@ -74,9 +77,28 @@ trafficServer <- function(id) {
           output$traffic_mmap <- renderUI(p)
         }
       })
+      observeEvent({
+        req(input$traffic_smap_shape_click)
+      }, {
+        click_info <- input$traffic_smap_shape_click
+        x <- traffic[traffic$RMSTRAFFIC_LRS_KEY %in% click_info$id, ] |>
+          st_drop_geometry()
+        value_idx <- match(input$traffic_var, names(x))
+        names(x)[value_idx] <- "VALUE"
+        ylabel <- names(.traffic_var_list)[.traffic_var_list == input$traffic_var]
+        title <- paste0("RMSTRAFFIC_LRS_KEY: ", click_info$id)
+        output$trend <- renderPlotly(
+          .trend_plot(x, title, fmt_y = "%{y}", ylab = ylabel)
+        )
+      })
     }
   )
 }
+
+.traffic_var_list <- list(
+  `Annual Average Daily Traffic (AADT)` = "AADT",
+  `Daily Vehicle Miles Traveled (DVMT)` = "DVMT"
+)
 
 .draw_traffic <- function(traffic_var, year, log2 = FALSE) {
   x <- traffic[traffic$YEAR %in% year, ]
@@ -95,17 +117,16 @@ trafficServer <- function(id) {
   }
   if (length(year) > 1) {
     plist <- lapply(year, function(k) {
-      .draw_traffic_leaflet(x[x$YEAR == k, ], min_val, max_val, traffic_var,
+      .draw_traffic_leaflet(x[x$YEAR == k, ], min_val, max_val,
                             title = paste("Year:", k, "<br>", unit))
     })
     do.call(sync, plist)
   } else {
-    .draw_traffic_leaflet(x, min_val, max_val, traffic_var, title = unit)
+    .draw_traffic_leaflet(x, min_val, max_val, title = unit)
   }
 }
 
-.draw_traffic_leaflet <- function(x, min_val, max_val, value_represented,
-                                  title = NULL, zoom = 11) {
+.draw_traffic_leaflet <- function(x, min_val, max_val, title = NULL, zoom = 11) {
   leaflet() |>
     addTiles() |>
     setView(lng = -75.1652, lat = 39.9525, zoom = zoom) |>
@@ -122,7 +143,8 @@ trafficServer <- function(id) {
         weight = 3, color = "#444444", dashArray = NULL,
         fillOpacity = 0.9, bringToFront = FALSE
       ),
-      label = paste0(value_represented, ": ", prettyNum(x$LABEL))
+      layerId = ~ RMSTRAFFIC_LRS_KEY,
+      label = paste0(x$RMSTRAFFIC_LRS_KEY, ": ", prettyNum(x$LABEL))
     ) |>
     addLegend(
       position = "bottomright",

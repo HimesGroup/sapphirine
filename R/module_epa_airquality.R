@@ -312,7 +312,7 @@ airqualityServer <- function(id) {
           weight = 3, color = "#444444", dashArray = NULL,
           fillOpacity = 0.9, bringToFront = FALSE
         ),
-        layerId = x$LOCATION,
+        layerId = ~ LOCATION,
         label = paste0(x$LOCATION, ": ", sprintf(num_fmt, x$VALUE))
       )
   }

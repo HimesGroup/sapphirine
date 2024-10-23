@@ -12,7 +12,7 @@ crimeUI <- function(id) {
             selectizeInput(
               inputId = ns("crime_var"),
               label = NULL,
-              choice = .crime_list,
+              choice = .crime_var_list,
               multiple = FALSE,
               selected = "Total",
               ),
@@ -84,7 +84,7 @@ crimeServer <- function(id) {
           st_drop_geometry()
         value_idx <- match(input$crime_var, names(x))
         names(x)[value_idx] <- "VALUE"
-        ylabel <- names(.crime_list)[.crime_list == input$crime_var]
+        ylabel <- names(.crime_var_list)[.crime_var_list == input$crime_var]
         output$trend <- renderPlotly(
           .trend_plot(x, click_info$id, fmt_y = "%{y}", ylab = ylabel)
         )
@@ -93,7 +93,7 @@ crimeServer <- function(id) {
   )
 }
 
-.crime_list <- list(
+.crime_var_list <- list(
   `Total Incidents` = "Total",
   `Aggravated Assault Firearm` = "Aggravated.Assault.Firearm",
   `Aggravated Assault No Firearm` = "Aggravated.Assault.No.Firearm",
@@ -136,8 +136,8 @@ crimeServer <- function(id) {
   max_val <- max(x$VALUE, na.rm = TRUE) * 1.01
   location <- crime$location[crime$location$YEAR %in% year, ]
   if (crime_var != "Total") {
-    crime_idx <- which(.crime_list == crime_var)
-    location <- location[location$text_gener == names(.crime_list)[crime_idx], ]
+    crime_idx <- which(.crime_var_list == crime_var)
+    location <- location[location$text_gener == names(.crime_var_list)[crime_idx], ]
   }
   if (length(year) > 1) {
     plist <- lapply(year, function(k) {
