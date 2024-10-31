@@ -177,24 +177,28 @@ violationServer <- function(id) {
       })
       observeEvent({
         req(input$violation_var)
-        req(input$location)
+        input$location
         input$pop_adj
       }, {
-        x <- violation[[input$data_type]]
-        x <- x[x$LOCATION %in% input$location, ] |>
-          st_drop_geometry()
-        value_idx <- match(input$violation_var, names(x))
-        names(x)[value_idx] <- "VALUE"
-        ylabel <- names(.violation_var_list)[.violation_var_list == input$violation_var]
-        fmt_y <- "%{y}"
-        if (input$pop_adj) {
-          x$VALUE <- x$VALUE / x$estimate
-          ylabel <- paste0(ylabel, " / 100 people")
-          fmt_y <- "%{y:3f}"
+        if (!is.null(input$location)) {
+          x <- violation[[input$data_type]]
+          x <- x[x$LOCATION %in% input$location, ] |>
+            st_drop_geometry()
+          value_idx <- match(input$violation_var, names(x))
+          names(x)[value_idx] <- "VALUE"
+          ylabel <- names(.violation_var_list)[.violation_var_list == input$violation_var]
+          fmt_y <- "%{y}"
+          if (input$pop_adj) {
+            x$VALUE <- x$VALUE / x$estimate
+            ylabel <- paste0(ylabel, " / 100 people")
+            fmt_y <- "%{y:3f}"
+          }
+          p <- .line_plot(x, fmt_y = fmt_y, ylab = ylabel)
+          output$line <- renderPlotly(p)
+        } else {
+          output$line <- renderPlotly(NULL)
         }
-        p <- .line_plot(x, fmt_y = fmt_y, ylab = ylabel)
-        output$line <- renderPlotly(p)
-      })
+      }, ignoreNULL = FALSE)
     }
   )
 }

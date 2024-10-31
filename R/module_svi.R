@@ -151,17 +151,21 @@ sviServer <- function(id) {
       })
       observeEvent({
         req(input$svi_var)
-        req(input$location)
+        input$location
       }, {
-        x <- svi[[input$data_type]]
-        value_idx <- match(input$svi_var, names(x))
-        names(x)[value_idx] <- "VALUE"
-        ylabel <- names(.svi_var_list)[.svi_var_list == input$svi_var]
-        x <- x[x$LOCATION %in% input$location, ] |>
-          st_drop_geometry()
-        p <- .line_plot(x, fmt_y = "%{y:.3f}", ylab = ylabel)
-        output$line <- renderPlotly(p)
-      })
+        if (!is.null(input$location)) {
+          x <- svi[[input$data_type]]
+          value_idx <- match(input$svi_var, names(x))
+          names(x)[value_idx] <- "VALUE"
+          ylabel <- names(.svi_var_list)[.svi_var_list == input$svi_var]
+          x <- x[x$LOCATION %in% input$location, ] |>
+            st_drop_geometry()
+          p <- .line_plot(x, fmt_y = "%{y:.3f}", ylab = ylabel)
+          output$line <- renderPlotly(p)
+        } else {
+          output$line <- renderPlotly(NULL)
+        }
+      }, ignoreNULL = FALSE)
     }
   )
 }

@@ -148,14 +148,18 @@ ndviServer <- function(id) {
         output$trend <- renderPlotly(NULL)
       })
       observeEvent({
-        req(input$location)
+        input$location
       }, {
-        x <- ndvi[[input$data_type]]
-        x <- x[x$LOCATION %in% input$location, ] |>
-          st_drop_geometry()
-        p <- .line_plot(x, fmt_y = "%{y:.3f}", ylab = "NDVI")
-        output$line <- renderPlotly(p)
-      })
+        if (!is.null(input$location)) {
+          x <- ndvi[[input$data_type]]
+          x <- x[x$LOCATION %in% input$location, ] |>
+            st_drop_geometry()
+          p <- .line_plot(x, fmt_y = "%{y:.3f}", ylab = "NDVI")
+          output$line <- renderPlotly(p)
+        } else {
+          output$line <- renderPlotly(NULL)
+        }
+      }, ignoreNULL = FALSE)
     }
   )
 }

@@ -128,16 +128,20 @@ crimeServer <- function(id) {
       )
       observeEvent({
         req(input$crime_var)
-        req(input$location)
+        input$location
       }, {
-        x <- crime$census_tract[crime$census_tract$LOCATION %in% input$location, ] |>
-          st_drop_geometry()
-        value_idx <- match(input$crime_var, names(x))
-        names(x)[value_idx] <- "VALUE"
-        ylabel <- names(.crime_var_list)[.crime_var_list == input$crime_var]
-        p <- .line_plot(x, fmt_y = "%{y}", ylab = ylabel)
-        output$line <- renderPlotly(p)
-      })
+        if (!is.null(input$location)) {
+          x <- crime$census_tract[crime$census_tract$LOCATION %in% input$location, ] |>
+            st_drop_geometry()
+          value_idx <- match(input$crime_var, names(x))
+          names(x)[value_idx] <- "VALUE"
+          ylabel <- names(.crime_var_list)[.crime_var_list == input$crime_var]
+          p <- .line_plot(x, fmt_y = "%{y}", ylab = ylabel)
+          output$line <- renderPlotly(p)
+        } else {
+          output$line <- renderPlotly(NULL)
+        }
+      }, ignoreNULL = FALSE)
     }
   )
 }

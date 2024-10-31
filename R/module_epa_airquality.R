@@ -214,14 +214,18 @@ airqualityServer <- function(id) {
         req(input$pollutant)
         req(input$data_field)
         req(input$event)
-        req(input$location)
+        input$location
       }, {
-        x <- rv$data[rv$data$LOCATION %in% input$location, ] %>%
-          st_drop_geometry()
-        ylabel <- gsub("\\(|\\)", "", rv$unit)
-        p <- .line_plot(x, fmt_y = "%{y:.3f}", ylab = ylabel)
-        output$line <- renderPlotly(p)
-      })
+        if (!is.null(input$location)) {
+          x <- rv$data[rv$data$LOCATION %in% input$location, ] %>%
+            st_drop_geometry()
+          ylabel <- gsub("\\(|\\)", "", rv$unit)
+          p <- .line_plot(x, fmt_y = "%{y:.3f}", ylab = ylabel)
+          output$line <- renderPlotly(p)
+        } else {
+          output$line <- renderPlotly(NULL)
+        }
+      }, ignoreNULL = FALSE)
     }
   )
 }

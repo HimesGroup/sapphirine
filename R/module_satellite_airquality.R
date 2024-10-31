@@ -195,15 +195,19 @@ satelliteServer <- function(id) {
       })
       observeEvent({
         req(input$pollutant)
-        req(input$location)
+        input$location
       }, {
-        x <- .subset_satellite(input$data_type, input$pollutant, rv$year_list)
-        x <- x[x$LOCATION %in% input$location, ] %>%
-          st_drop_geometry()
-        ylabel <- gsub("\\(|\\)", "", rv$unit)
-        p <- .line_plot(x, fmt_y = "%{y:.3f}", ylab = ylabel)
-        output$line <- renderPlotly(p)
-      })
+        if (!is.null(input$location)) {
+          x <- .subset_satellite(input$data_type, input$pollutant, rv$year_list)
+          x <- x[x$LOCATION %in% input$location, ] %>%
+            st_drop_geometry()
+          ylabel <- gsub("\\(|\\)", "", rv$unit)
+          p <- .line_plot(x, fmt_y = "%{y:.3f}", ylab = ylabel)
+          output$line <- renderPlotly(p)
+        } else {
+          output$line <- renderPlotly(NULL)
+        }
+      }, ignoreNULL = FALSE)
     }
   )
 }

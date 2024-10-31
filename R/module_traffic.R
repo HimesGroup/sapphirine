@@ -130,25 +130,29 @@ trafficServer <- function(id) {
       )
       observeEvent({
         req(input$traffic_var)
-        req(input$location)
+        input$location
         input$log2
       }, {
-        x <- traffic[traffic$RMSTRAFFIC_LRS_KEY %in% input$location, ] |>
-          st_drop_geometry()
-        value_idx <- match(input$traffic_var, names(x))
-        names(x)[value_idx] <- "VALUE"
-        id_idx <- match("RMSTRAFFIC_LRS_KEY", names(x))
-        names(x)[id_idx] <- "LOCATION"
-        fmt_y <- "%{y}"
-        if (input$log2) {
-          x$VALUE <- log2(x$VALUE)
-          x$VALUE[is.infinite(x$VALUE)] <- 0
-          fmt_y <- "%{y:.3f}"
+        if (!is.null(input$location)) {
+          x <- traffic[traffic$RMSTRAFFIC_LRS_KEY %in% input$location, ] |>
+            st_drop_geometry()
+          value_idx <- match(input$traffic_var, names(x))
+          names(x)[value_idx] <- "VALUE"
+          id_idx <- match("RMSTRAFFIC_LRS_KEY", names(x))
+          names(x)[id_idx] <- "LOCATION"
+          fmt_y <- "%{y}"
+          if (input$log2) {
+            x$VALUE <- log2(x$VALUE)
+            x$VALUE[is.infinite(x$VALUE)] <- 0
+            fmt_y <- "%{y:.3f}"
+          }
+          ## ylabel <- names(.traffic_var_list)[.traffic_var_list == input$traffic_var]
+          p <- .line_plot(x, fmt_y = "%{y}", ylab = input$traffic_var)
+          output$line <- renderPlotly(p)
+        } else {
+          output$line <- renderPlotly(NULL)
         }
-        ## ylabel <- names(.traffic_var_list)[.traffic_var_list == input$traffic_var]
-        p <- .line_plot(x, fmt_y = "%{y}", ylab = input$traffic_var)
-        output$line <- renderPlotly(p)
-      })
+      }, ignoreNULL = FALSE)
     }
   )
 }

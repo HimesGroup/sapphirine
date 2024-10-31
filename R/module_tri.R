@@ -156,18 +156,22 @@ triServer <- function(id) {
       })
       observeEvent({
         req(input$tri_var)
-        req(input$location)
+        input$location
       }, {
-        x <- tri[[input$data_type]]
-        value_idx <- match(input$tri_var, names(x))
-        names(x)[value_idx] <- "VALUE"
-        ylabel <- names(.tri_var_list)[.tri_var_list == input$tri_var] |>
-          paste0(" (Pound)")
-        x <- x[x$LOCATION %in% input$location, ] |>
-          st_drop_geometry()
-        p <- .line_plot(x, fmt_y = "%{y:.3f}", ylab = ylabel)
-        output$line <- renderPlotly(p)
-      })
+        if (!is.null(input$location)) {
+          x <- tri[[input$data_type]]
+          value_idx <- match(input$tri_var, names(x))
+          names(x)[value_idx] <- "VALUE"
+          ylabel <- names(.tri_var_list)[.tri_var_list == input$tri_var] |>
+            paste0(" (Pound)")
+          x <- x[x$LOCATION %in% input$location, ] |>
+            st_drop_geometry()
+          p <- .line_plot(x, fmt_y = "%{y:.3f}", ylab = ylabel)
+          output$line <- renderPlotly(p)
+        } else {
+          output$line <- renderPlotly(NULL)
+        }
+      }, ignoreNULL = FALSE)
     }
   )
 }
