@@ -180,8 +180,8 @@ airqualityServer <- function(id) {
           output$airquality_smap <- renderLeaflet(p)
         } else {
           output$airquality_mmap <- renderUI(p)
-          output$trend <- renderPlotly(NULL)
         }
+        output$trend <- renderPlotly(NULL)
       })
       observeEvent({
         req(input$airquality_smap_shape_click)

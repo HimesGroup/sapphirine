@@ -163,8 +163,8 @@ satelliteServer <- function(id) {
           output$satellite_smap <- renderLeaflet(p)
         } else {
           output$satellite_mmap <- renderUI(p)
-          output$trend <- renderPlotly(NULL)
         }
+        output$trend <- renderPlotly(NULL)
       })
       observeEvent({
         req(input$satellite_smap_shape_click)

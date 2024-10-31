@@ -106,8 +106,8 @@ trafficServer <- function(id) {
           output$traffic_smap <- renderLeaflet(p)
         } else {
           output$traffic_mmap <- renderUI(p)
-          output$trend <- renderPlotly(NULL)
         }
+        output$trend <- renderPlotly(NULL)
       })
       observeEvent({
         req(input$traffic_smap_shape_click)

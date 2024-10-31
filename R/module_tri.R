@@ -115,8 +115,8 @@ triServer <- function(id) {
           output$tri_smap <- renderLeaflet(p)
         } else {
           output$tri_mmap <- renderUI(p)
-          output$trend <- renderPlotly(NULL)
         }
+        output$trend <- renderPlotly(NULL)
       })
       observeEvent({
         req(input$tri_smap_shape_click)

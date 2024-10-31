@@ -123,8 +123,8 @@ violationServer <- function(id) {
           output$violation_smap <- renderLeaflet(p)
         } else {
           output$violation_mmap <- renderUI(p)
-          output$trend <- renderPlotly(NULL)
         }
+        output$trend <- renderPlotly(NULL)
       })
       observeEvent({
         req(input$violation_smap_shape_click)

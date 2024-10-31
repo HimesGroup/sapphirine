@@ -104,8 +104,8 @@ crimeServer <- function(id) {
           output$crime_smap <- renderLeaflet(p)
         } else {
           output$crime_mmap <- renderUI(p)
-          output$trend <- renderPlotly(NULL)
         }
+        output$trend <- renderPlotly(NULL)
       })
       observeEvent({
         req(input$crime_smap_shape_click)

@@ -118,8 +118,8 @@ ndviServer <- function(id) {
           output$ndvi_smap <- renderLeaflet(p)
         } else {
           output$ndvi_mmap <- renderUI(p)
-          output$trend <- renderPlotly(NULL)
         }
+        output$trend <- renderPlotly(NULL)
       })
       observeEvent({
         req(input$ndvi_smap_shape_click)

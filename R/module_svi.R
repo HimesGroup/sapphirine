@@ -107,8 +107,8 @@ sviServer <- function(id) {
           output$svi_smap <- renderLeaflet(p)
         } else {
           output$svi_mmap <- renderUI(p)
-          output$trend <- renderPlotly(NULL)
         }
+        output$trend <- renderPlotly(NULL)
       })
       observeEvent({
         req(input$svi_smap_shape_click)

@@ -102,8 +102,8 @@ adiServer <- function(id) {
           output$adi_smap <- renderLeaflet(p)
         } else {
           output$adi_mmap <- renderUI(p)
-          output$trend <- renderPlotly(NULL)
         }
+          output$trend <- renderPlotly(NULL)
       })
       observeEvent({
         req(input$adi_smap_shape_click)
@@ -124,18 +124,14 @@ adiServer <- function(id) {
         server = TRUE
       )
       observeEvent({
-        input$location
+        req(input$location)
       }, {
-        if (!is.null(input$location)) {
           x <- adi[adi$LOCATION %in% input$location, ] |>
             st_drop_geometry()
           value_idx <- match("ADI_NATRANK", names(x))
           names(x)[value_idx] <- "VALUE"
           p <- .line_plot(x, ylab = "National ADI Percentile")
           output$line <- renderPlotly(p)
-        } else {
-          output$line <- renderPlotly(NULL)
-        }
       })
     }
   )
