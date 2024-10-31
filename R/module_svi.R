@@ -25,18 +25,40 @@ sviUI <- function(id) {
               "indicating greater social vulnerability"),
             hr(),
             radioButtons(
+              inputId = ns("fig_type"),
+              label = "Figure type",
+              choices = list(`Map` = "map", `Line Graph` = "line_graph"),
+              selected = "map",
+              inline = TRUE
+            ),
+            radioButtons(
               inputId = ns("data_type"),
               label = "Geographic unit",
               choices = .svi_type_list,
               selected = "census_tract"
             ),
             hr(),
-            selectizeInput(
-              inputId = ns("year"),
-              label = "Year",
-              choice =  sort(unique(svi[[1]]$YEAR), decreasing = TRUE),
-              multiple = TRUE,
-              selected = sort(unique(svi[[1]]$YEAR), decreasing = TRUE)[1]
+            conditionalPanel(
+              "input.fig_type == 'map'",
+              ns = ns,
+              selectizeInput(
+                inputId = ns("year"),
+                label = "Year",
+                choice =  sort(unique(svi[[1]]$YEAR), decreasing = TRUE),
+                multiple = TRUE,
+                selected = sort(unique(svi[[1]]$YEAR), decreasing = TRUE)[1]
+              )
+            ),
+            conditionalPanel(
+              "input.fig_type == 'line_graph'",
+              ns = ns,
+              selectizeInput(
+                inputId = ns("location"),
+                label = "Regions of interest (up to 8)",
+                choices = NULL,
+                multiple = TRUE,
+                options = list(maxItems = 8)
+              )
             )
           )
         ),
@@ -44,18 +66,27 @@ sviUI <- function(id) {
       ),
       mainPanel(
         conditionalPanel(
-          "input.year.length == 1",
+          "input.fig_type == 'map'",
           ns = ns,
-          withSpinner(leafletOutput(ns("svi_smap"), height = "67vh")),
-          hr(),
-          p(strong("Click a polygon of interest to view historical change."),
-            style = "color: #3CB371; margin-bottom: 20px"),
-          plotlyOutput(ns("trend"))
+          conditionalPanel(
+            "input.year.length == 1",
+            ns = ns,
+            withSpinner(leafletOutput(ns("svi_smap"), height = "67vh")),
+            hr(),
+            p(strong("Click a polygon of interest to view historical change."),
+              style = "color: #3CB371; margin-bottom: 20px"),
+            plotlyOutput(ns("trend"))
+          ),
+          conditionalPanel(
+            "input.year.length > 1",
+            ns = ns,
+            withSpinner(uiOutput(ns("svi_mmap")))
+          )
         ),
         conditionalPanel(
-          "input.year.length > 1",
+          "input.fig_type == 'line_graph'",
           ns = ns,
-          withSpinner(uiOutput(ns("svi_mmap")))
+          plotlyOutput(ns("line"))
         )
       )
     )
@@ -76,6 +107,7 @@ sviServer <- function(id) {
           output$svi_smap <- renderLeaflet(p)
         } else {
           output$svi_mmap <- renderUI(p)
+          output$trend <- renderPlotly(NULL)
         }
       })
       observeEvent({
@@ -90,7 +122,7 @@ sviServer <- function(id) {
           plot_ly(x = ~ YEAR, y = ~ RPL_THEMES,
                   type = "scatter", mode = "lines+markers",
                   name = "Overall Summary Ranking",
-                  hovertemplate = "<br><b>Value</b>: %{y:.3f}") |>
+                  hovertemplate = "%{y:.3f}") |>
           add_trace(y = ~ RPL_THEME1, name = "Socioeconomic Status") |>
           add_trace(y = ~ RPL_THEME2, name = "Household Characteristics") |>
           add_trace(y = ~ RPL_THEME3, name = "Racial & Ethnic Minority Status") |>
@@ -99,6 +131,36 @@ sviServer <- function(id) {
                  yaxis = list(title = "SVI Theme Score"),
                  hovermode = "x unified")
         output$trend <- renderPlotly(p)
+      })
+      observeEvent({
+        req(input$data_type)
+      }, {
+        ## Don't know why but if previously selected items in different
+        ## geographic unit memorized in the updated list; so clear list
+        ## first.
+        updateSelectizeInput(
+          session, inputId = "location", choices = character(0)
+        )
+        updateSelectizeInput(
+          session, inputId = "location",
+          choices = unique(ndvi[[input$data_type]]$LOCATION), selected = NULL,
+          server = TRUE
+        )
+        output$line <- renderPlotly(NULL)
+        output$trend <- renderPlotly(NULL)
+      })
+      observeEvent({
+        req(input$svi_var)
+        req(input$location)
+      }, {
+        x <- svi[[input$data_type]]
+        value_idx <- match(input$svi_var, names(x))
+        names(x)[value_idx] <- "VALUE"
+        ylabel <- names(.svi_var_list)[.svi_var_list == input$svi_var]
+        x <- x[x$LOCATION %in% input$location, ] |>
+          st_drop_geometry()
+        p <- .line_plot(x, fmt_y = "%{y:.3f}", ylab = ylabel)
+        output$line <- renderPlotly(p)
       })
     }
   )

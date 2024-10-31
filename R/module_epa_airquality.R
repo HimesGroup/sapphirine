@@ -43,6 +43,13 @@ airqualityUI <- function(id) {
             ),
             hr(),
             radioButtons(
+              inputId = ns("fig_type"),
+              label = "Figure type",
+              choices = list(`Map` = "map", `Line Graph` = "line_graph"),
+              selected = "map",
+              inline = TRUE
+            ),
+            radioButtons(
               inputId = ns("data_type"),
               label = "Geographic unit",
               ## disable temporarily Grid
@@ -59,12 +66,27 @@ airqualityUI <- function(id) {
               selected = "Events Included"
             ),
             hr(),
-            selectizeInput(
-              inputId = ns("year"),
-              label = "Year",
-              choice = sort(unique(airquality$county$YEAR), decreasing = TRUE),
-              multiple = TRUE,
-              selected = sort(unique(airquality$county$YEAR), decreasing = TRUE)[1]
+            conditionalPanel(
+              "input.fig_type == 'map'",
+              ns = ns,
+              selectizeInput(
+                inputId = ns("year"),
+                label = "Year",
+                choice = sort(unique(airquality$county$YEAR), decreasing = TRUE),
+                multiple = TRUE,
+                selected = sort(unique(airquality$county$YEAR), decreasing = TRUE)[1]
+              )
+            ),
+            conditionalPanel(
+              "input.fig_type == 'line_graph'",
+              ns = ns,
+              selectizeInput(
+                inputId = ns("location"),
+                label = "Regions of interest (up to 8)",
+                choices = NULL,
+                multiple = TRUE,
+                options = list(maxItems = 8)
+              )
             )
           )
         ),
@@ -72,23 +94,31 @@ airqualityUI <- function(id) {
       ),
       mainPanel(
         conditionalPanel(
-          "input.year.length == 1",
+          "input.fig_type == 'map'",
           ns = ns,
-          withSpinner(leafletOutput(ns("airquality_smap"), height = "67vh")),
           conditionalPanel(
-            "input.data_type != 'grid'",
+            "input.year.length == 1",
             ns = ns,
-            hr(),
-            p(strong("Click a polygon of interest to view historical change."),
-              style = "color: #3CB371; margin-bottom: 20px"),
-            plotlyOutput(ns("trend"))
+            withSpinner(leafletOutput(ns("airquality_smap"), height = "67vh")),
+            conditionalPanel(
+              "input.data_type != 'grid'",
+              ns = ns,
+              hr(),
+              p(strong("Click a polygon of interest to view historical change."),
+                style = "color: #3CB371; margin-bottom: 20px"),
+              plotlyOutput(ns("trend"))
+            )
+          ),
+          conditionalPanel(
+            "input.year.length > 1",
+            ns = ns,
+            withSpinner(uiOutput(ns("airquality_mmap")))
           )
         ),
         conditionalPanel(
-          "input.year.length > 1",
+          "input.fig_type == 'line_graph'",
           ns = ns,
-          withSpinner(uiOutput(ns("airquality_mmap")))
-          ## uiOutput(ns("airquality_mmap"))
+          plotlyOutput(ns("line"))
         )
       )
     )
@@ -106,7 +136,7 @@ airqualityServer <- function(id) {
         req(input$data_type)
         req(input$data_field)
         req(input$event)
-        req(input$year)
+        ## req(input$year)
       }, {
         field_list <- .get_data_field(input$pollutant)
         if (input$data_field %in% field_list) {
@@ -122,11 +152,11 @@ airqualityServer <- function(id) {
         if (data_field_selected == "primary_exceedance_count") {
           rv$unit <- "(count)"
         }
+        ## rv$data <- .subset_airquality(
+        ##   input$data_type, input$pollutant, data_field_selected,
+        ##   input$event, input$year
+        ## )
         rv$data <- .subset_airquality(
-          input$data_type, input$pollutant, data_field_selected,
-          input$event, input$year
-        )
-        rv$trend <- .subset_airquality(
           input$data_type, input$pollutant, data_field_selected,
           input$event, unique(airquality$county$YEAR)
         )
@@ -136,28 +166,61 @@ airqualityServer <- function(id) {
         )
       })
       observeEvent({
-        rv$data
+        ## rv$data
+        req(rv$data)
+        req(input$year)
       }, {
+        x <- rv$data[rv$data$YEAR %in% input$year, ]
         if (input$data_type == "grid") {
-          p <- .draw_airquality_grid(rv$data, rv$unit, input$year)
+          p <- .draw_airquality_grid(x, rv$unit, input$year)
         } else {
-          p <- .draw_airquality_sf(rv$data, rv$unit, input$year)
+          p <- .draw_airquality_sf(x, rv$unit, input$year)
         }
         if (length(input$year) == 1) {
           output$airquality_smap <- renderLeaflet(p)
         } else {
           output$airquality_mmap <- renderUI(p)
+          output$trend <- renderPlotly(NULL)
         }
       })
       observeEvent({
         req(input$airquality_smap_shape_click)
       }, {
         click_info <- input$airquality_smap_shape_click
-        x <- rv$trend[rv$trend$LOCATION %in% click_info$id, ] |>
+        x <- rv$data[rv$data$LOCATION %in% click_info$id, ] |>
           st_drop_geometry()
         ylabel <- gsub("\\(|\\)", "", rv$unit)
         title <- paste0(click_info$id, "<br>", rv$trend_subtitle)
         output$trend <- renderPlotly(.trend_plot(x, title = title, ylab = ylabel))
+      })
+      observeEvent({
+        req(input$data_type)
+      }, {
+        ## Don't know why but if previously selected items in different
+        ## geographic unit memorized in the updated list; so clear list
+        ## first.
+        updateSelectizeInput(
+          session, inputId = "location", choices = character(0)
+        )
+        updateSelectizeInput(
+          session, inputId = "location",
+          choices = unique(airquality[[input$data_type]]$LOCATION),
+          selected = NULL, server = TRUE
+        )
+        output$line <- renderPlotly(NULL)
+        output$trend <- renderPlotly(NULL)
+      })
+      observeEvent({
+        req(input$pollutant)
+        req(input$data_field)
+        req(input$event)
+        req(input$location)
+      }, {
+        x <- rv$data[rv$data$LOCATION %in% input$location, ] %>%
+          st_drop_geometry()
+        ylabel <- gsub("\\(|\\)", "", rv$unit)
+        p <- .line_plot(x, fmt_y = "%{y:.3f}", ylab = ylabel)
+        output$line <- renderPlotly(p)
       })
     }
   )
@@ -246,15 +309,15 @@ airqualityServer <- function(id) {
   max_val <- max(x[[1]], na.rm = TRUE) * 1.01
   if (length(year) > 1) {
     plist <- lapply(year, function(k) {
-      .draw_airquality_leaflet(
+      .draw_leaflet(
         x[, , , k, drop = TRUE], min_val, max_val,
         title = paste("Year:", k, "<br>", unit), project = FALSE, grid = TRUE
       )
     })
     do.call(sync, plist)
   } else {
-    .draw_airquality_leaflet(x, min_val, max_val, title = unit,
-                             project = FALSE, grid = TRUE)
+    .draw_leaflet(x, min_val, max_val, title = unit,
+                  project = FALSE, grid = TRUE)
   }
 }
 
@@ -263,57 +326,13 @@ airqualityServer <- function(id) {
   max_val <- max(x$VALUE, na.rm = TRUE)
   if (length(year) > 1) {
     plist <- lapply(year, function(k) {
-      .draw_airquality_leaflet(
+      .draw_leaflet(
         x[x$YEAR == k, ], min_val, max_val,
         title = paste("Year:", k, "<br>", unit), grid = FALSE
       )
     })
     do.call(sync, plist)
   } else {
-    .draw_airquality_leaflet(x, min_val, max_val, title = unit, grid = FALSE)
-  }
-}
-
-.draw_airquality_leaflet <- function(x, min_val, max_val, title = NULL,
-                                     zoom = 11, num_fmt = "%.3f",
-                                     project = FALSE, grid = TRUE,
-                                     col_reverse = TRUE, palette = "Spectral") {
-  p <- leaflet() |>
-    addTiles() |>
-    setView(lng = -75.1652, lat = 39.9525, zoom = zoom) |>
-    addEasyButton(easyButton(
-      icon = "fa-crosshairs", title = "Recenter",
-      onClick = JS("function(btn, map){map.setView([39.9525, -75.1652], 11);}")
-    )) |>
-    addLegend(
-      position = "bottomright",
-      pal = .get_pal(min_val, max_val, reverse = !col_reverse, palette = palette),
-      values = c(min_val, max_val),
-      labFormat = labelFormat(transform = function(k) sort(k, decreasing = TRUE)),
-      title = title
-    )
-  if (grid) {
-    p |>
-      addRasterImage(
-        as(x, "Raster"), colors = .get_pal(min_val, max_val, reverse = col_reverse,
-                                           palette = palette),
-        opacity = 0.6, project = project
-      )
-  } else {
-    p |>
-      addPolygons(
-        data = st_transform(x, 4326),
-        fillColor = ~.get_pal(min_val, max_val, reverse = col_reverse,
-                              palette = palette)(VALUE),
-        weight = 1, opacity = 1,
-        color = "#444444",
-        dashArray = NULL, fillOpacity = 0.6,
-        highlightOptions = highlightOptions(
-          weight = 3, color = "#444444", dashArray = NULL,
-          fillOpacity = 0.9, bringToFront = FALSE
-        ),
-        layerId = ~ LOCATION,
-        label = paste0(x$LOCATION, ": ", sprintf(num_fmt, x$VALUE))
-      )
+    .draw_leaflet(x, min_val, max_val, title = unit, grid = FALSE)
   }
 }

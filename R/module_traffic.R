@@ -30,12 +30,34 @@ trafficUI <- function(id) {
             ##   a(href = "https://epsg.io/32618", "EPSG:32618 (WGS 84 / UTM zone 18N)"),
             ##   "projected coordinate system to calculate Daily Vehicle Miles Traveled."),
             hr(),
-            selectizeInput(
-              inputId = ns("year"),
-              label = "Year",
-              choice = sort(unique(traffic$YEAR), decreasing = TRUE),
-              multiple = TRUE,
-              selected = sort(unique(traffic$YEAR), decreasing = TRUE)[1]
+            radioButtons(
+              inputId = ns("fig_type"),
+              label = "Figure type",
+              choices = list(`Map` = "map", `Line Graph` = "line_graph"),
+              selected = "map",
+              inline = TRUE
+            ),
+            conditionalPanel(
+              "input.fig_type == 'map'",
+              ns = ns,
+              selectizeInput(
+                inputId = ns("year"),
+                label = "Year",
+                choice = sort(unique(traffic$YEAR), decreasing = TRUE),
+                multiple = TRUE,
+                selected = sort(unique(traffic$YEAR), decreasing = TRUE)[1]
+              )
+            ),
+            conditionalPanel(
+              "input.fig_type == 'line_graph'",
+              ns = ns,
+              selectizeInput(
+                inputId = ns("location"),
+                label = "Segments of interest (up to 8)",
+                choices = NULL,
+                multiple = TRUE,
+                options = list(maxItems = 8)
+              )
             )
           )
         ),
@@ -43,18 +65,27 @@ trafficUI <- function(id) {
       ),
       mainPanel(
         conditionalPanel(
-          "input.year.length == 1",
+          "input.fig_type == 'map'",
           ns = ns,
-          withSpinner(leafletOutput(ns("traffic_smap"), height = "67vh")),
-          hr(),
-          p(strong("Click a road segment of interest to view historical change."),
-            style = "color: #3CB371; margin-bottom: 20px"),
-          plotlyOutput(ns("trend"))
+          conditionalPanel(
+            "input.year.length == 1",
+            ns = ns,
+            withSpinner(leafletOutput(ns("traffic_smap"), height = "67vh")),
+            hr(),
+            p(strong("Click a road segment of interest to view historical change."),
+              style = "color: #3CB371; margin-bottom: 20px"),
+            plotlyOutput(ns("trend"))
+          ),
+          conditionalPanel(
+            "input.year.length > 1",
+            ns = ns,
+            withSpinner(uiOutput(ns("traffic_mmap")))
+          )
         ),
         conditionalPanel(
-          "input.year.length > 1",
+          "input.fig_type == 'line_graph'",
           ns = ns,
-          withSpinner(uiOutput(ns("traffic_mmap")))
+          plotlyOutput(ns("line"))
         )
       )
     )
@@ -75,6 +106,7 @@ trafficServer <- function(id) {
           output$traffic_smap <- renderLeaflet(p)
         } else {
           output$traffic_mmap <- renderUI(p)
+          output$trend <- renderPlotly(NULL)
         }
       })
       observeEvent({
@@ -90,6 +122,32 @@ trafficServer <- function(id) {
         output$trend <- renderPlotly(
           .trend_plot(x, title, fmt_y = "%{y}", ylab = ylabel)
         )
+      })
+      updateSelectizeInput(
+        session, inputId = "location",
+        choices = unique(traffic$RMSTRAFFIC_LRS_KEY), selected = NULL,
+        server = TRUE
+      )
+      observeEvent({
+        req(input$traffic_var)
+        req(input$location)
+        input$log2
+      }, {
+        x <- traffic[traffic$RMSTRAFFIC_LRS_KEY %in% input$location, ] |>
+          st_drop_geometry()
+        value_idx <- match(input$traffic_var, names(x))
+        names(x)[value_idx] <- "VALUE"
+        id_idx <- match("RMSTRAFFIC_LRS_KEY", names(x))
+        names(x)[id_idx] <- "LOCATION"
+        fmt_y <- "%{y}"
+        if (input$log2) {
+          x$VALUE <- log2(x$VALUE)
+          x$VALUE[is.infinite(x$VALUE)] <- 0
+          fmt_y <- "%{y:.3f}"
+        }
+        ## ylabel <- names(.traffic_var_list)[.traffic_var_list == input$traffic_var]
+        p <- .line_plot(x, fmt_y = "%{y}", ylab = input$traffic_var)
+        output$line <- renderPlotly(p)
       })
     }
   )

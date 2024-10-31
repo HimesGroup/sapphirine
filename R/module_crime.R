@@ -29,12 +29,34 @@ crimeUI <- function(id) {
               style = "color: #3B71CA;"
             ),
             hr(),
-            selectizeInput(
-              inputId = ns("year"),
-              label = "Year",
-              choice =  sort(unique(crime$census_tract$YEAR), decreasing = TRUE),
-              multiple = TRUE,
-              selected = sort(unique(crime$census_tract$YEAR), decreasing = TRUE)[1]
+            radioButtons(
+              inputId = ns("fig_type"),
+              label = "Figure type",
+              choices = list(`Map` = "map", `Line Graph` = "line_graph"),
+              selected = "map",
+              inline = TRUE
+            ),
+            conditionalPanel(
+              "input.fig_type == 'map'",
+              ns = ns,
+              selectizeInput(
+                inputId = ns("year"),
+                label = "Year",
+                choice =  sort(unique(crime$census_tract$YEAR), decreasing = TRUE),
+                multiple = TRUE,
+                selected = sort(unique(crime$census_tract$YEAR), decreasing = TRUE)[1]
+              )
+            ),
+            conditionalPanel(
+              "input.fig_type == 'line_graph'",
+              ns = ns,
+              selectizeInput(
+                inputId = ns("location"),
+                label = "Regions of interest (up to 8)",
+                choices = NULL,
+                multiple = TRUE,
+                options = list(maxItems = 8)
+              )
             )
           )
         ),
@@ -42,18 +64,27 @@ crimeUI <- function(id) {
       ),
       mainPanel(
         conditionalPanel(
-          "input.year.length == 1",
+          "input.fig_type == 'map'",
           ns = ns,
-          withSpinner(leafletOutput(ns("crime_smap"), height = "67vh")),
-          hr(),
-          p(strong("Click a polygon of interest to view historical change."),
-            style = "color: #3CB371; margin-bottom: 20px"),
-          plotlyOutput(ns("trend"))
+          conditionalPanel(
+            "input.year.length == 1",
+            ns = ns,
+            withSpinner(leafletOutput(ns("crime_smap"), height = "67vh")),
+            hr(),
+            p(strong("Click a polygon of interest to view historical change."),
+              style = "color: #3CB371; margin-bottom: 20px"),
+            plotlyOutput(ns("trend"))
+          ),
+          conditionalPanel(
+            "input.year.length > 1",
+            ns = ns,
+            withSpinner(uiOutput(ns("crime_mmap")))
+          )
         ),
         conditionalPanel(
-          "input.year.length > 1",
+          "input.fig_type == 'line_graph'",
           ns = ns,
-          withSpinner(uiOutput(ns("crime_mmap")))
+          plotlyOutput(ns("line"))
         )
       )
     )
@@ -73,6 +104,7 @@ crimeServer <- function(id) {
           output$crime_smap <- renderLeaflet(p)
         } else {
           output$crime_mmap <- renderUI(p)
+          output$trend <- renderPlotly(NULL)
         }
       })
       observeEvent({
@@ -88,6 +120,23 @@ crimeServer <- function(id) {
         output$trend <- renderPlotly(
           .trend_plot(x, click_info$id, fmt_y = "%{y}", ylab = ylabel)
         )
+      })
+      updateSelectizeInput(
+        session, inputId = "location",
+        choices = unique(crime$census_tract$LOCATION), selected = NULL,
+        server = TRUE
+      )
+      observeEvent({
+        req(input$crime_var)
+        req(input$location)
+      }, {
+        x <- crime$census_tract[crime$census_tract$LOCATION %in% input$location, ] |>
+          st_drop_geometry()
+        value_idx <- match(input$crime_var, names(x))
+        names(x)[value_idx] <- "VALUE"
+        ylabel <- names(.crime_var_list)[.crime_var_list == input$crime_var]
+        p <- .line_plot(x, fmt_y = "%{y}", ylab = ylabel)
+        output$line <- renderPlotly(p)
       })
     }
   )
@@ -155,7 +204,7 @@ crimeServer <- function(id) {
 
 .draw_crime_leaflet <- function(location, x, min_val, max_val, title,
                                 grid = FALSE) {
-  p <- .draw_airquality_leaflet(x = x, min_val = min_val, max_val = max_val,
+  p <- .draw_leaflet(x = x, min_val = min_val, max_val = max_val,
                                 zoom = 11, num_fmt = "%.0f",
                                 title = title, grid = grid)
   if (nrow(location) > 0) {

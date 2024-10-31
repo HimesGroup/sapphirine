@@ -1,5 +1,8 @@
 ui <- fluidPage(
   title = "SAPPHIRINE",
+  tags$style(HTML("
+    .tabbable > .nav > li[class=active] > a {color:charcoal; font-weight: bold}
+  ")),
   titlePanel(h2(
     "SAPPHIRINE",
     style = "font-weight: bold; margin-bottom: 20px"

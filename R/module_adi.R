@@ -26,12 +26,35 @@ adiUI <- function(id) {
             p(span("QDI: ", style = "font-weight: bold"),
               "Questionable Data Integrity"),
             hr(),
-            selectizeInput(
-              inputId = ns("year"),
-              label = "Year",
-              choice =  sort(unique(adi$YEAR), decreasing = TRUE),
-              multiple = TRUE,
-              selected = sort(unique(adi$YEAR), decreasing = TRUE)[1]
+            radioButtons(
+              inputId = ns("fig_type"),
+              label = "Figure type",
+              choices = list(`Map` = "map", `Line Graph` = "line_graph"),
+              selected = "map",
+              inline = TRUE
+            ),
+            hr(),
+            conditionalPanel(
+              "input.fig_type == 'map'",
+              ns = ns,
+              selectizeInput(
+                inputId = ns("year"),
+                label = "Year",
+                choices =  sort(unique(adi$YEAR), decreasing = TRUE),
+                multiple = TRUE,
+                selected = sort(unique(adi$YEAR), decreasing = TRUE)[1]
+              )
+            ),
+            conditionalPanel(
+              "input.fig_type == 'line_graph'",
+              ns = ns,
+              selectizeInput(
+                inputId = ns("location"),
+                label = "Regions of interest (up to 8)",
+                choices = NULL,
+                multiple = TRUE,
+                options = list(maxItems = 8)
+              )
             )
           )
         ),
@@ -39,18 +62,27 @@ adiUI <- function(id) {
       ),
       mainPanel(
         conditionalPanel(
-          "input.year.length == 1",
+          "input.fig_type == 'map'",
           ns = ns,
-          withSpinner(leafletOutput(ns("adi_smap"), height = "67vh")),
-          hr(),
-          p(strong("Click a polygon of interest to view historical change."),
-            style = "color: #3CB371; margin-bottom: 20px"),
-          plotlyOutput(ns("trend"))
+          conditionalPanel(
+            "input.year.length == 1",
+            ns = ns,
+            withSpinner(leafletOutput(ns("adi_smap"), height = "67vh")),
+            hr(),
+            p(strong("Click a polygon of interest to view historical change."),
+              style = "color: #3CB371; margin-bottom: 20px"),
+            plotlyOutput(ns("trend"))
+          ),
+          conditionalPanel(
+            "input.year.length > 1",
+            ns = ns,
+            withSpinner(uiOutput(ns("adi_mmap")))
+          )
         ),
         conditionalPanel(
-          "input.year.length > 1",
+          "input.fig_type == 'line_graph'",
           ns = ns,
-          withSpinner(uiOutput(ns("adi_mmap")))
+          plotlyOutput(ns("line"))
         )
       )
     )
@@ -70,6 +102,7 @@ adiServer <- function(id) {
           output$adi_smap <- renderLeaflet(p)
         } else {
           output$adi_mmap <- renderUI(p)
+          output$trend <- renderPlotly(NULL)
         }
       })
       observeEvent({
@@ -84,6 +117,25 @@ adiServer <- function(id) {
           .trend_plot(x, click_info$id, fmt_y = "%{y}",
                       ylab = "National ADI Percentile")
         )
+      })
+      updateSelectizeInput(
+        session, inputId = "location",
+        choices = unique(adi$LOCATION), selected = NULL,
+        server = TRUE
+      )
+      observeEvent({
+        input$location
+      }, {
+        if (!is.null(input$location)) {
+          x <- adi[adi$LOCATION %in% input$location, ] |>
+            st_drop_geometry()
+          value_idx <- match("ADI_NATRANK", names(x))
+          names(x)[value_idx] <- "VALUE"
+          p <- .line_plot(x, ylab = "National ADI Percentile")
+          output$line <- renderPlotly(p)
+        } else {
+          output$line <- renderPlotly(NULL)
+        }
       })
     }
   )

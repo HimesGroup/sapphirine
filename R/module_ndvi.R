@@ -26,6 +26,13 @@ ndviUI <- function(id) {
               "forests or crops at their peak growth stage"),
             hr(),
             radioButtons(
+              inputId = ns("fig_type"),
+              label = "Figure type",
+              choices = list(`Map` = "map", `Line Graph` = "line_graph"),
+              selected = "map",
+              inline = TRUE
+            ),
+            radioButtons(
               inputId = ns("data_type"),
               label = "Geographic unit",
               ## disable temporarily Grid
@@ -34,12 +41,27 @@ ndviUI <- function(id) {
               selected = "census_tract"
             ),
             hr(),
-            selectizeInput(
-              inputId = ns("year"),
-              label = "Year",
-              choice = sort(unique(ndvi$county$YEAR), decreasing = TRUE),
-              multiple = TRUE,
-              selected = sort(unique(ndvi$county$YEAR), decreasing = TRUE)[1]
+            conditionalPanel(
+              "input.fig_type == 'map'",
+              ns = ns,
+              selectizeInput(
+                inputId = ns("year"),
+                label = "Year",
+                choices = sort(unique(ndvi$county$YEAR), decreasing = TRUE),
+                multiple = TRUE,
+                selected = sort(unique(ndvi$county$YEAR), decreasing = TRUE)[1]
+              )
+            ),
+            conditionalPanel(
+              "input.fig_type == 'line_graph'",
+              ns = ns,
+              selectizeInput(
+                inputId = ns("location"),
+                label = "Regions of interest (up to 8)",
+                choices = NULL,
+                multiple = TRUE,
+                options = list(maxItems = 8)
+              )
             )
           )
         ),
@@ -47,22 +69,31 @@ ndviUI <- function(id) {
       ),
       mainPanel(
         conditionalPanel(
-          "input.year.length == 1",
+          "input.fig_type == 'map'",
           ns = ns,
-          withSpinner(leafletOutput(ns("ndvi_smap"), height = "67vh")),
           conditionalPanel(
-            "input.data_type != 'grid'",
+            "input.year.length == 1",
             ns = ns,
-            hr(),
-            p(strong("Click a polygon of interest to view historical change."),
-              style = "color: #3CB371; margin-bottom: 20px"),
-            plotlyOutput(ns("trend"))
+            withSpinner(leafletOutput(ns("ndvi_smap"), height = "67vh")),
+            conditionalPanel(
+              "input.data_type != 'grid'",
+              ns = ns,
+              hr(),
+              p(strong("Click a polygon of interest to view historical change."),
+                style = "color: #3CB371; margin-bottom: 20px"),
+              plotlyOutput(ns("trend"))
+            )
+          ),
+          conditionalPanel(
+            "input.year.length > 1",
+            ns = ns,
+            withSpinner(uiOutput(ns("ndvi_mmap")))
           )
         ),
         conditionalPanel(
-          "input.year.length > 1",
+          "input.fig_type == 'line_graph'",
           ns = ns,
-          withSpinner(uiOutput(ns("ndvi_mmap")))
+          plotlyOutput(ns("line"))
         )
       )
     )
@@ -87,6 +118,7 @@ ndviServer <- function(id) {
           output$ndvi_smap <- renderLeaflet(p)
         } else {
           output$ndvi_mmap <- renderUI(p)
+          output$trend <- renderPlotly(NULL)
         }
       })
       observeEvent({
@@ -97,6 +129,32 @@ ndviServer <- function(id) {
         x <- x[x$LOCATION %in% click_info$id, ] |>
           st_drop_geometry()
         output$trend <- renderPlotly(.trend_plot(x, click_info$id, ylab = "NDVI"))
+      })
+      observeEvent({
+        req(input$data_type)
+      }, {
+        ## Don't know why but if previously selected items in different
+        ## geographic unit memorized in the updated list; so clear list
+        ## first.
+        updateSelectizeInput(
+          session, inputId = "location", choices = character(0)
+        )
+        updateSelectizeInput(
+          session, inputId = "location",
+          choices = unique(ndvi[[input$data_type]]$LOCATION), selected = NULL,
+          server = TRUE
+        )
+        output$line <- renderPlotly(NULL)
+        output$trend <- renderPlotly(NULL)
+      })
+      observeEvent({
+        req(input$location)
+      }, {
+        x <- ndvi[[input$data_type]]
+        x <- x[x$LOCATION %in% input$location, ] |>
+          st_drop_geometry()
+        p <- .line_plot(x, fmt_y = "%{y:.3f}", ylab = "NDVI")
+        output$line <- renderPlotly(p)
       })
     }
   )
@@ -111,8 +169,6 @@ ndviServer <- function(id) {
   type <- match.arg(type)
   x <- ndvi[[type]]
   if (type == "grid") {
-    ## year <- as.character(year)
-    ## x[, , , year, drop = TRUE]
     x[, , , as.character(year), drop = TRUE]
   } else {
     x[x$YEAR %in% as.integer(year), ]
@@ -128,14 +184,14 @@ ndviServer <- function(id) {
   ## max_val = 1
   if (length(year) > 1) {
     plist <- lapply(year, function(k) {
-      .draw_ndvi_leaflet(
+      .draw_leaflet(
         x[, , , as.character(k), drop = TRUE], min_val, max_val,
         title = paste0("Year: ", k), project = FALSE, grid = TRUE
       )
     })
     do.call(sync, plist)
   } else {
-    .draw_ndvi_leaflet(x, min_val, max_val, project = TRUE, grid = TRUE)
+    .draw_leaflet(x, min_val, max_val, project = TRUE, grid = TRUE)
   }
 }
 
@@ -147,15 +203,13 @@ ndviServer <- function(id) {
   ## max_val = 1
   if (length(year) > 1) {
     plist <- lapply(year, function(k) {
-      .draw_ndvi_leaflet(x[x$YEAR == k, ], min_val, max_val,
+      .draw_leaflet(x[x$YEAR == k, ], min_val, max_val,
                          title = paste0("Year: ", k), grid = FALSE,
                          col_reverse = FALSE, palette = "Greens")
     })
     do.call(sync, plist)
   } else {
-    .draw_ndvi_leaflet(x, min_val, max_val, grid = FALSE,
+    .draw_leaflet(x, min_val, max_val, grid = FALSE,
                        col_reverse = FALSE, palette = "Greens")
   }
 }
-
-.draw_ndvi_leaflet <- function(...) .draw_airquality_leaflet(...)

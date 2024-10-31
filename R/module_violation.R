@@ -38,38 +38,68 @@ violationUI <- function(id) {
             ),
             hr(),
             radioButtons(
+              inputId = ns("fig_type"),
+              label = "Figure type",
+              choices = list(`Map` = "map", `Line Graph` = "line_graph"),
+              selected = "map",
+              inline = TRUE
+            ),
+            radioButtons(
               inputId = ns("data_type"),
               label = "Geographic Unit",
               choices = .violation_type_list,
               selected = "census_tract"
             ),
             hr(),
-            selectizeInput(
-              inputId = ns("year"),
-              label = "Year",
-              choice =  sort(unique(violation$location$YEAR), decreasing = TRUE),
-              multiple = TRUE,
-              selected = sort(unique(violation$location$YEAR), decreasing = TRUE)[1]
+            conditionalPanel(
+              "input.fig_type == 'map'",
+              ns = ns,
+              selectizeInput(
+                inputId = ns("year"),
+                label = "Year",
+                choice =  sort(unique(violation$location$YEAR), decreasing = TRUE),
+                multiple = TRUE,
+                selected = sort(unique(violation$location$YEAR), decreasing = TRUE)[1]
+              )
+            ),
+            conditionalPanel(
+              "input.fig_type == 'line_graph'",
+              ns = ns,
+              selectizeInput(
+                inputId = ns("location"),
+                label = "Regions of interest (up to 8)",
+                choices = NULL,
+                multiple = TRUE,
+                options = list(maxItems = 8)
+              )
             )
           )
         ),
         width = 3
       ),
       mainPanel(
-        ## withSpinner(leafletOutput(ns("violation_map"), height = "67vh"))
         conditionalPanel(
-          "input.year.length == 1",
+          "input.fig_type == 'map'",
           ns = ns,
-          withSpinner(leafletOutput(ns("violation_smap"), height = "67vh")),
-          hr(),
-          p(strong("Click a polygon of interest to view historical change."),
-            style = "color: #3CB371; margin-bottom: 20px"),
-          plotlyOutput(ns("trend"))
+          conditionalPanel(
+            "input.year.length == 1",
+            ns = ns,
+            withSpinner(leafletOutput(ns("violation_smap"), height = "67vh")),
+            hr(),
+            p(strong("Click a polygon of interest to view historical change."),
+              style = "color: #3CB371; margin-bottom: 20px"),
+            plotlyOutput(ns("trend"))
+          ),
+          conditionalPanel(
+            "input.year.length > 1",
+            ns = ns,
+            withSpinner(uiOutput(ns("violation_mmap")))
+          )
         ),
         conditionalPanel(
-          "input.year.length > 1",
+          "input.fig_type == 'line_graph'",
           ns = ns,
-          withSpinner(uiOutput(ns("violation_mmap")))
+          plotlyOutput(ns("line"))
         )
       )
     )
@@ -93,6 +123,7 @@ violationServer <- function(id) {
           output$violation_smap <- renderLeaflet(p)
         } else {
           output$violation_mmap <- renderUI(p)
+          output$trend <- renderPlotly(NULL)
         }
       })
       observeEvent({
@@ -118,7 +149,7 @@ violationServer <- function(id) {
           plot_ly(x = ~ YEAR, y = ~ total,
                   type = "scatter", mode = "lines+markers",
                   name = "Total Violations",
-                  hovertemplate = paste0("<br><b>Value</b>: ", fmt_y)) |>
+                  hovertemplate = fmt_y) |>
           add_trace(y = ~ water_damage, name = "Water Damage Violations") |>
           add_trace(y = ~ air_contaminant, name = "Air Contaminant Violations") |>
           add_trace(y = ~ pest_infestation, name = "Pest Infestation Violations") |>
@@ -126,6 +157,43 @@ violationServer <- function(id) {
                  yaxis = list(title = ylabel),
                  hovermode = "x unified")
         output$trend <- renderPlotly(p)
+      })
+      observeEvent({
+        req(input$data_type)
+      }, {
+        ## Don't know why but if previously selected items in different
+        ## geographic unit memorized in the updated list; so clear list
+        ## first.
+        updateSelectizeInput(
+          session, inputId = "location", choices = character(0)
+        )
+        updateSelectizeInput(
+          session, inputId = "location",
+          choices = unique(violation[[input$data_type]]$LOCATION),
+          selected = NULL, server = TRUE
+        )
+        output$line <- renderPlotly(NULL)
+        output$trend <- renderPlotly(NULL)
+      })
+      observeEvent({
+        req(input$violation_var)
+        req(input$location)
+        input$pop_adj
+      }, {
+        x <- violation[[input$data_type]]
+        x <- x[x$LOCATION %in% input$location, ] |>
+          st_drop_geometry()
+        value_idx <- match(input$violation_var, names(x))
+        names(x)[value_idx] <- "VALUE"
+        ylabel <- names(.violation_var_list)[.violation_var_list == input$violation_var]
+        fmt_y <- "%{y}"
+        if (input$pop_adj) {
+          x$VALUE <- x$VALUE / x$estimate
+          ylabel <- paste0(ylabel, " / 100 people")
+          fmt_y <- "%{y:3f}"
+        }
+        p <- .line_plot(x, fmt_y = fmt_y, ylab = ylabel)
+        output$line <- renderPlotly(p)
       })
     }
   )
@@ -148,11 +216,6 @@ violationServer <- function(id) {
   type <- match.arg(type)
   x <- violation[[type]]
   x <- x[x$YEAR %in% year, ]
-  ## if (type == "Census Tract") {
-  ##   x <- violation$census_tract[violation$census_tract$YEAR %in% year, ]
-  ## } else {
-  ##   x <- violation$block_group[violation$block_group$YEAR %in% year, ]
-  ## }
   value_idx <- match(violation_var, names(x))
   names(x)[value_idx] <- "VALUE"
   num_fmt <- "%.0f"
@@ -189,7 +252,7 @@ violationServer <- function(id) {
 
 .draw_violation_leaflet <- function(location, x, min_val, max_val, title,
                                     num_fmt, grid = FALSE) {
-  p <- .draw_airquality_leaflet(x = x, min_val = min_val, max_val = max_val,
+  p <- .draw_leaflet(x = x, min_val = min_val, max_val = max_val,
                                 zoom = 11, num_fmt = num_fmt,
                                 title = title, grid = grid)
   if (nrow(location) > 0) {

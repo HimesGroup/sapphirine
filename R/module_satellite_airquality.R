@@ -32,6 +32,13 @@ satelliteUI <- function(id) {
               "van Donkelaar et al. Environ Sci Technol 2021", target = "_blank"),
             hr(),
             radioButtons(
+              inputId = ns("fig_type"),
+              label = "Figure type",
+              choices = list(`Map` = "map", `Line Graph` = "line_graph"),
+              selected = "map",
+              inline = TRUE
+            ),
+            radioButtons(
               inputId = ns("data_type"),
               label = "Geographic unit",
               ## disable temporarily Grid
@@ -40,12 +47,26 @@ satelliteUI <- function(id) {
               selected = "census_tract"
             ),
             hr(),
-            selectizeInput(
-              inputId = ns("year"),
-              label = "Year",
-              choice = .get_year_list("Cooper 2022"),
-              multiple = TRUE,
-              selected = .get_year_list("Cooper 2022")[1]
+            conditionalPanel(
+              "input.fig_type == 'map'",
+              ns = ns,
+              selectizeInput(
+                inputId = ns("year"),
+                label = "Year",
+                choice = NULL,
+                multiple = TRUE
+              )
+            ),
+            conditionalPanel(
+              "input.fig_type == 'line_graph'",
+              ns = ns,
+              selectizeInput(
+                inputId = ns("location"),
+                label = "Regions of interest (up to 8)",
+                choices = NULL,
+                multiple = TRUE,
+                options = list(maxItems = 8)
+              )
             )
           )
         ),
@@ -53,22 +74,31 @@ satelliteUI <- function(id) {
       ),
       mainPanel(
         conditionalPanel(
-          "input.year.length == 1",
+          "input.fig_type == 'map'",
           ns = ns,
-          withSpinner(leafletOutput(ns("satellite_smap"), height = "67vh")),
           conditionalPanel(
-            "input.data_type != 'grid'",
+            "input.year.length == 1",
             ns = ns,
-            hr(),
-            p(strong("Click a polygon of interest to view historical change."),
-              style = "color: #3CB371; margin-bottom: 20px"),
-            plotlyOutput(ns("trend"))
+            withSpinner(leafletOutput(ns("satellite_smap"), height = "67vh")),
+            conditionalPanel(
+              "input.data_type != 'grid'",
+              ns = ns,
+              hr(),
+              p(strong("Click a polygon of interest to view historical change."),
+                style = "color: #3CB371; margin-bottom: 20px"),
+              plotlyOutput(ns("trend"))
+            )
+          ),
+          conditionalPanel(
+            "input.year.length > 1",
+            ns = ns,
+            withSpinner(uiOutput(ns("satellite_mmap")))
           )
         ),
         conditionalPanel(
-          "input.year.length > 1",
+          "input.fig_type == 'line_graph'",
           ns = ns,
-          withSpinner(uiOutput(ns("satellite_mmap")))
+          plotlyOutput(ns("line"))
         )
       )
     )
@@ -79,90 +109,112 @@ satelliteServer <- function(id) {
   moduleServer(
     id,
     function(input, output, session) {
-      rv <- reactiveValues(data = NULL, unit = NULL, year_selected = NULL,
-                           trend = NULL, trend_subtitle = NULL)
+      rv <- reactiveValues(data = NULL, unit = NULL, year_list = NULL,
+                           year_selected = NULL, trend_subtitle = NULL)
       observeEvent({
         req(input$pollutant)
-        req(input$data_type)
-        input$year
       }, {
-        year_list <- .get_year_list(input$pollutant)
-        if (is.null(input$year) || any(input$year %ni% year_list)) {
-          updateSelectizeInput(session, inputId = "year", choices = year_list,
-                               selected = year_list[1])
-          ## Don't rv$year_selected <- input$year as input$year has not been
-          ## updated until observeEvent{} ends
-          rv$year_selected <- year_list[1]
-        } else {
-          updateSelectizeInput(session, inputId = "year", choices = year_list,
-                               selected = input$year)
-          rv$year_selected <- input$year
-        }
-        rv$unit <- switch(
-          input$pollutant,
-          "Cooper 2022" = "(ppbv)",
-          "Annenberg 2022" = "(ppb)",
-          "Shen 2024" = "(μg/m<sup>3</sup>)",
-          "van Donkelaar 2021" = "(μg/m<sup>3</sup>)"
-        )
-        rv$data <- .subset_satellite(input$data_type, input$pollutant,
-                                     rv$year_selected)
-        rv$trend <- .subset_satellite(input$data_type, input$pollutant,
-                                      year_list)
-        if (input$pollutant %in% c("Cooper 2022", "Annenberg 2022")) {
-          pollutant_var <- "NO2"
-        } else if (input$pollutant %in% c("Shen 2024", "van Donkelaar 2021")) {
-          pollutant_var <- "PM2.5"
-        } else {
-          pollutant_var <- NULL
-        }
-        rv$trend_subtitle <- paste0("<sub>", pollutant_var, " (",
-                                    input$pollutant, ")</sub>")
+          rv$year_list <- .get_year_list(input$pollutant)
+          updateSelectizeInput(session, inputId = "year", choices = rv$year_list,
+                               selected = NULL)
+          rv$unit <- switch(
+            input$pollutant,
+            "no2_cooper" = "(ppbv)",
+            "no2_annenberg" = "(ppb)",
+            "pm25_shen" = "(μg/m<sup>3</sup>)",
+            "pm25_van" = "(μg/m<sup>3</sup>)"
+          )
+          if (grepl("^no2", input$pollutant)) {
+            name_idx <- which(.satellite_var_list[["NO2"]] == input$pollutant)
+            rv$trend_subtitle <- paste0(
+              "<sub>NO2 (", names(.satellite_var_list[["NO2"]])[name_idx], ")</sub>"
+            )
+          }
+          if (grepl("^pm25", input$pollutant)) {
+            name_idx <- which(.satellite_var_list[["PM2.5"]] == input$pollutant)
+            rv$trend_subtitle <- paste0(
+              "<sub>PM2.5 (", names(.satellite_var_list[["PM2.5"]])[name_idx], ")</sub>"
+            )
+          }
       })
       observeEvent({
-        rv$data
+        req(rv$year_list)
+        req(input$data_type)
+        req(input$year)
       }, {
-        if (input$data_type == "grid") {
-          p <- .draw_satellite_grid(rv$data, rv$unit, rv$year_selected)
+        rv$data <- .subset_satellite(input$data_type, input$pollutant, rv$year_list)
+        if (is.null(input$year) || any(input$year %ni% rv$year_list)) {
+          rv$year_selected <- rv$year_list[1]
         } else {
-          p <- .draw_satellite_sf(rv$data, rv$unit, rv$year_selected)
+          rv$year_selected <- input$year
+        }
+      })
+      observeEvent({
+        req(rv$data)
+        req(rv$year_selected)
+      }, {
+        x <- rv$data[rv$data$YEAR %in% rv$year_selected, ]
+        if (input$data_type == "grid") {
+          p <- .draw_satellite_grid(x, rv$unit, rv$year_selected)
+        } else {
+          p <- .draw_satellite_sf(x, rv$unit, rv$year_selected)
         }
         if (length(input$year) == 1) {
           output$satellite_smap <- renderLeaflet(p)
         } else {
           output$satellite_mmap <- renderUI(p)
+          output$trend <- renderPlotly(NULL)
         }
       })
       observeEvent({
         req(input$satellite_smap_shape_click)
       }, {
         click_info <- input$satellite_smap_shape_click
-        x <- rv$trend[rv$trend$LOCATION %in% click_info$id, ] |>
+        x <- rv$data[rv$data$LOCATION %in% click_info$id, ] |>
           st_drop_geometry()
         ylabel <- gsub("\\(|\\)", "", rv$unit)
         title <- paste0(click_info$id, "<br>", rv$trend_subtitle)
         output$trend <- renderPlotly(.trend_plot(x, title = title, ylab = ylabel))
       })
+      observeEvent({
+        req(input$data_type)
+      }, {
+        ## Don't know why but if previously selected items in different
+        ## geographic unit memorized in the updated list; so clear list
+        ## first.
+        updateSelectizeInput(
+          session, inputId = "location", choices = character(0)
+        )
+        updateSelectizeInput(
+          session, inputId = "location",
+          choices = unique(satellite[[input$pollutant]][[input$data_type]]$LOCATION),
+          selected = NULL, server = TRUE
+        )
+        output$line <- renderPlotly(NULL)
+        output$trend <- renderPlotly(NULL)
+      })
+      observeEvent({
+        req(input$pollutant)
+        req(input$location)
+      }, {
+        x <- .subset_satellite(input$data_type, input$pollutant, rv$year_list)
+        x <- x[x$LOCATION %in% input$location, ] %>%
+          st_drop_geometry()
+        ylabel <- gsub("\\(|\\)", "", rv$unit)
+        p <- .line_plot(x, fmt_y = "%{y:.3f}", ylab = ylabel)
+        output$line <- renderPlotly(p)
+      })
     }
   )
 }
 
-.get_year_list <- function(x = c("Cooper 2022", "Annenberg 2022", "Shen 2024",
-                                 "van Donkelaar 2021")) {
-  x <- match.arg(x)
-  year_list <- switch(
-    x,
-    `Cooper 2022` = unique(satellite$no2_cooper[[2]]$YEAR),
-    `Annenberg 2022` = unique(satellite$no2_annenberg[[2]]$YEAR),
-    `Shen 2024` = unique(satellite$pm25_shen[[2]]$YEAR),
-    `van Donkelaar 2021` = unique(satellite$pm25_van[[2]]$YEAR)
-    )
-  sort(year_list, decreasing = TRUE)
+.get_year_list <- function(x) {
+  sort(unique(satellite[[x]][[1]]$YEAR), decreasing = TRUE)
 }
 
 .satellite_var_list <- list(
-  `NO2` = list("Cooper 2022", "Annenberg 2022"),
-  `PM2.5` = list("Shen 2024", "van Donkelaar 2021")
+  `NO2` = list(`Cooper 2022` = "no2_cooper", `Annenberg 2022` = "no2_annenberg"),
+  `PM2.5` = list(`Shen 2024` = "pm25_shen", `van Donkelaar 2021` = "pm25_van")
 )
 
 .satellite_type_list <- list(
@@ -172,13 +224,14 @@ satelliteServer <- function(id) {
 
 .subset_satellite <- function(type = c("census_tract", "county"), pollutant, year) {
   type <- match.arg(type)
-  x <- switch(
-    pollutant,
-    `Cooper 2022` = satellite$no2_cooper[[type]],
-    `Annenberg 2022` = satellite$no2_annenberg[[type]],
-    `Shen 2024` = satellite$pm25_shen[[type]],
-    `van Donkelaar 2021` = satellite$pm25_van[[type]],
-  )
+  ## x <- switch(
+  ##   pollutant,
+  ##   `Cooper 2022` = satellite$no2_cooper[[type]],
+  ##   `Annenberg 2022` = satellite$no2_annenberg[[type]],
+  ##   `Shen 2024` = satellite$pm25_shen[[type]],
+  ##   `van Donkelaar 2021` = satellite$pm25_van[[type]]
+  ## )
+  x <- satellite[[pollutant]][[type]]
   if (type == "grid") {
     ## year <- as.character(year)
     ## x[, , , year, drop = TRUE]
@@ -193,14 +246,14 @@ satelliteServer <- function(id) {
   max_val <- max(x[[1]], na.rm = TRUE) * 1.01
   if (length(year) > 1) {
     plist <- lapply(year, function(k) {
-      .draw_satellite_leaflet(
+      .draw_leaflet(
         x[, , , as.character(k), drop = TRUE], min_val, max_val,
         title = paste("Year:", k, "<br>", unit), project = FALSE, grid = TRUE
       )
     })
     do.call(sync, plist)
   } else {
-    .draw_satellite_leaflet(x, min_val, max_val, title = unit,
+    .draw_leaflet(x, min_val, max_val, title = unit,
                             project = FALSE, grid = TRUE)
   }
 }
@@ -210,15 +263,13 @@ satelliteServer <- function(id) {
   max_val <- max(x$VALUE, na.rm = TRUE)
   if (length(year) > 1) {
     plist <- lapply(year, function(k) {
-      .draw_satellite_leaflet(
+      .draw_leaflet(
         x[x$YEAR == k, ], min_val, max_val,
         title = paste("Year:", k, "<br>", unit), grid = FALSE
       )
     })
     do.call(sync, plist)
   } else {
-    .draw_satellite_leaflet(x, min_val, max_val, title = unit, grid = FALSE)
+    .draw_leaflet(x, min_val, max_val, title = unit, grid = FALSE)
   }
 }
-
-.draw_satellite_leaflet <- function(...) .draw_airquality_leaflet(...)
