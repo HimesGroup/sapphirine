@@ -152,13 +152,9 @@ airqualityServer <- function(id) {
         if (data_field_selected == "primary_exceedance_count") {
           rv$unit <- "(count)"
         }
-        ## rv$data <- .subset_airquality(
-        ##   input$data_type, input$pollutant, data_field_selected,
-        ##   input$event, input$year
-        ## )
         rv$data <- .subset_airquality(
           input$data_type, input$pollutant, data_field_selected,
-          input$event, unique(airquality$county$YEAR)
+          input$event, NULL
         )
         rv$trend_subtitle <- paste0(
           "<sub>", input$pollutant, "; ", data_field_selected, "; ",
@@ -283,14 +279,22 @@ airqualityServer <- function(id) {
   idx_pollutant <- match(pollutant, names(x))
   x <- x[[idx_pollutant]]
   x <- x[, , , , data_field, event, drop = TRUE]
-  x[, , , as.character(year), drop = TRUE]
+  if (!is.null(year)) {
+    x[, , , as.character(year), drop = TRUE]
+  } else {
+    x
+  }
 }
 
 .subset_airquality_sf <- function(x, pollutant, data_field, year, event) {
   x <- x[x$POLLUTANT_STANDARD == pollutant, ]
   x <- x[x$DATA_FIELD == data_field, ]
   x <- x[x$EVENT == event, ]
-  x[x$YEAR %in% as.integer(year), ]
+  if (!is.null(year)) {
+    x[x$YEAR %in% as.integer(year), ]
+  } else {
+    x
+  }
 }
 
 .subset_airquality <- function(type = c("census_tract", "county"),

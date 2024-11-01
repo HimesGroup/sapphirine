@@ -53,8 +53,9 @@ satelliteUI <- function(id) {
               selectizeInput(
                 inputId = ns("year"),
                 label = "Year",
-                choice = NULL,
-                multiple = TRUE
+                choice = .get_year_list("no2_cooper"),
+                multiple = TRUE,
+                selected = .get_year_list("no2_cooper")[1]
               )
             ),
             conditionalPanel(
@@ -109,63 +110,57 @@ satelliteServer <- function(id) {
   moduleServer(
     id,
     function(input, output, session) {
-      rv <- reactiveValues(data = NULL, unit = NULL, year_list = NULL,
+      rv <- reactiveValues(data = NULL, unit = NULL,
                            year_selected = NULL, trend_subtitle = NULL)
       observeEvent({
         req(input$pollutant)
       }, {
-          rv$year_list <- .get_year_list(input$pollutant)
-          updateSelectizeInput(session, inputId = "year", choices = rv$year_list,
-                               selected = NULL)
-          rv$unit <- switch(
-            input$pollutant,
-            "no2_cooper" = "(ppbv)",
-            "no2_annenberg" = "(ppb)",
-            "pm25_shen" = "(μg/m<sup>3</sup>)",
-            "pm25_van" = "(μg/m<sup>3</sup>)"
+        updateSelectizeInput(
+          session, inputId = "year", choices = .get_year_list(input$pollutant),
+          selected = NULL
+        )
+        rv$unit <- switch(
+          input$pollutant,
+          "no2_cooper" = "(ppbv)",
+          "no2_annenberg" = "(ppb)",
+          "pm25_shen" = "(μg/m<sup>3</sup>)",
+          "pm25_van" = "(μg/m<sup>3</sup>)"
+        )
+        if (grepl("^no2", input$pollutant)) {
+          name_idx <- which(.satellite_var_list[["NO2"]] == input$pollutant)
+          rv$trend_subtitle <- paste0(
+            "<sub>NO2 (", names(.satellite_var_list[["NO2"]])[name_idx], ")</sub>"
           )
-          if (grepl("^no2", input$pollutant)) {
-            name_idx <- which(.satellite_var_list[["NO2"]] == input$pollutant)
-            rv$trend_subtitle <- paste0(
-              "<sub>NO2 (", names(.satellite_var_list[["NO2"]])[name_idx], ")</sub>"
-            )
-          }
-          if (grepl("^pm25", input$pollutant)) {
-            name_idx <- which(.satellite_var_list[["PM2.5"]] == input$pollutant)
-            rv$trend_subtitle <- paste0(
-              "<sub>PM2.5 (", names(.satellite_var_list[["PM2.5"]])[name_idx], ")</sub>"
-            )
-          }
-      })
+        }
+        if (grepl("^pm25", input$pollutant)) {
+          name_idx <- which(.satellite_var_list[["PM2.5"]] == input$pollutant)
+          rv$trend_subtitle <- paste0(
+            "<sub>PM2.5 (", names(.satellite_var_list[["PM2.5"]])[name_idx], ")</sub>"
+          )
+        }
+      }, ignoreInit = TRUE)
       observeEvent({
-        req(rv$year_list)
         req(input$data_type)
-        req(input$year)
+        input$year
       }, {
-        rv$data <- .subset_satellite(input$data_type, input$pollutant, rv$year_list)
-        if (is.null(input$year) || any(input$year %ni% rv$year_list)) {
-          rv$year_selected <- rv$year_list[1]
-        } else {
-          rv$year_selected <- input$year
+        output$satellite_smap <- renderLeaflet(NULL)
+        output$satellite_mmap <- renderLeaflet(NULL)
+        if (!is.null(input$year)) {
+          rv$data <- .subset_satellite(input$data_type, input$pollutant, NULL)
+          x <- rv$data[rv$data$YEAR %in% input$year, ]
+          if (input$data_type == "grid") {
+            p <- .draw_satellite_grid(x, rv$unit, input$year)
+          } else {
+            p <- .draw_satellite_sf(x, rv$unit, input$year)
+          }
+          if (length(input$year) == 1) {
+            output$satellite_smap <- renderLeaflet(p)
+          } else {
+            output$satellite_mmap <- renderUI(p)
+          }
+          output$trend <- renderPlotly(NULL)
         }
-      })
-      observeEvent({
-        req(rv$data)
-        req(rv$year_selected)
-      }, {
-        x <- rv$data[rv$data$YEAR %in% rv$year_selected, ]
-        if (input$data_type == "grid") {
-          p <- .draw_satellite_grid(x, rv$unit, rv$year_selected)
-        } else {
-          p <- .draw_satellite_sf(x, rv$unit, rv$year_selected)
-        }
-        if (length(input$year) == 1) {
-          output$satellite_smap <- renderLeaflet(p)
-        } else {
-          output$satellite_mmap <- renderUI(p)
-        }
-        output$trend <- renderPlotly(NULL)
-      })
+      }, ignoreNULL = FALSE)
       observeEvent({
         req(input$satellite_smap_shape_click)
       }, {
@@ -198,7 +193,7 @@ satelliteServer <- function(id) {
         input$location
       }, {
         if (!is.null(input$location)) {
-          x <- .subset_satellite(input$data_type, input$pollutant, rv$year_list)
+          x <- .subset_satellite(input$data_type, input$pollutant, NULL)
           x <- x[x$LOCATION %in% input$location, ] %>%
             st_drop_geometry()
           ylabel <- gsub("\\(|\\)", "", rv$unit)
@@ -228,22 +223,19 @@ satelliteServer <- function(id) {
 
 .subset_satellite <- function(type = c("census_tract", "county"), pollutant, year) {
   type <- match.arg(type)
-  ## x <- switch(
-  ##   pollutant,
-  ##   `Cooper 2022` = satellite$no2_cooper[[type]],
-  ##   `Annenberg 2022` = satellite$no2_annenberg[[type]],
-  ##   `Shen 2024` = satellite$pm25_shen[[type]],
-  ##   `van Donkelaar 2021` = satellite$pm25_van[[type]]
-  ## )
   x <- satellite[[pollutant]][[type]]
-  if (type == "grid") {
-    ## year <- as.character(year)
-    ## x[, , , year, drop = TRUE]
-    x[, , , as.character(year), drop = TRUE]
+  if (!is.null(year)) {
+    if (type == "grid") {
+      ## year <- as.character(year)
+      ## x[, , , year, drop = TRUE]
+      x[, , , as.character(year), drop = TRUE]
+    } else {
+      x[x$YEAR %in% as.integer(year), ]
+    }
   } else {
-    x[x$YEAR %in% as.integer(year), ]
+    x
   }
-}
+ }
 
 .draw_satellite_grid <- function(x, unit, year) {
   min_val <- min(x[[1]], na.rm = TRUE) * 0.99 # small buffer
