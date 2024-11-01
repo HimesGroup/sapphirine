@@ -213,7 +213,7 @@ airqualityServer <- function(id) {
         input$location
       }, {
         if (!is.null(input$location)) {
-          x <- rv$data[rv$data$LOCATION %in% input$location, ] %>%
+          x <- rv$data[rv$data$LOCATION %in% input$location, ] |>
             st_drop_geometry()
           ylabel <- gsub("\\(|\\)", "", rv$unit)
           p <- .line_plot(x, fmt_y = "%{y:.3f}", ylab = ylabel)

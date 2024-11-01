@@ -194,7 +194,7 @@ satelliteServer <- function(id) {
       }, {
         if (!is.null(input$location)) {
           x <- .subset_satellite(input$data_type, input$pollutant, NULL)
-          x <- x[x$LOCATION %in% input$location, ] %>%
+          x <- x[x$LOCATION %in% input$location, ] |>
             st_drop_geometry()
           ylabel <- gsub("\\(|\\)", "", rv$unit)
           p <- .line_plot(x, fmt_y = "%{y:.3f}", ylab = ylabel)
