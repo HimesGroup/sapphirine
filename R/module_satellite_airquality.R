@@ -110,8 +110,7 @@ satelliteServer <- function(id) {
   moduleServer(
     id,
     function(input, output, session) {
-      rv <- reactiveValues(data = NULL, unit = NULL,
-                           year_selected = NULL, trend_subtitle = NULL)
+      rv <- reactiveValues(data = NULL, unit = "(ppbv)", trend_subtitle = NULL)
       observeEvent({
         req(input$pollutant)
       }, {
