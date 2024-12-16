@@ -8,5 +8,6 @@ server <- function(input, output, session) {
   crimeServer("Crime")
   airqualityServer("Airquality")
   satelliteServer("Satellite")
+  placesServer("PLACES")
 }
 

@@ -208,12 +208,12 @@ ndviServer <- function(id) {
   if (length(year) > 1) {
     plist <- lapply(year, function(k) {
       .draw_leaflet(x[x$YEAR == k, ], min_val, max_val,
-                         title = paste0("Year: ", k), grid = FALSE,
-                         col_reverse = FALSE, palette = "Greens")
+                    title = paste0("Year: ", k), grid = FALSE,
+                    col_reverse = FALSE, palette = "Greens")
     })
     do.call(sync, plist)
   } else {
     .draw_leaflet(x, min_val, max_val, grid = FALSE,
-                       col_reverse = FALSE, palette = "Greens")
+                  col_reverse = FALSE, palette = "Greens")
   }
 }

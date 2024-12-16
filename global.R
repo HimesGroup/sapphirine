@@ -29,8 +29,12 @@ crime <- readRDS(file.path("sapphirine_data", "RDS", "crime.RDS"))
 ## Traffic data
 traffic <- readRDS(file.path("sapphirine_data", "RDS", "traffic.RDS"))
 
+## CDC PLACES
+places <- readRDS(file.path("sapphirine_data", "RDS", "cdc_places.RDS"))
+
 ## EPA air quality data in global scope
 airquality <- readRDS(file.path("sapphirine_data", "RDS", "epa_airquality.RDS"))
 
 ## satellite
 satellite <- readRDS(file.path("sapphirine_data", "RDS", "satellite_airquality.RDS"))
+

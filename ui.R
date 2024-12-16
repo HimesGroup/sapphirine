@@ -51,6 +51,8 @@ ui <- fluidPage(
              tags$li(span("Satellite Air Quality: ", style = "font-weight: bold; color: aqua"),
                      "Satellite-derived air quality data",
                      HTML(paste0("(NO", tags$sub("2"))), "and PM2.5)"),
+             tags$li(span("CDC PLACES: ", style = "font-weight: bold; color: crimson"),
+                     "Health-related data using small-area estimation"),
              style = "line-height: 1.5"
            ),
       p("Data covers the Philadelphia-Camden-Wilmington statistical area,",
@@ -88,6 +90,7 @@ ui <- fluidPage(
     crimeUI("Crime"),
     trafficUI("Traffic"),
     airqualityUI("Airquality"),
-    satelliteUI("Satellite")
+    satelliteUI("Satellite"),
+    placesUI("PLACES")
   )
 )
